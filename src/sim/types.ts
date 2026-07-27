@@ -2,6 +2,7 @@ import type { MapfOptions } from '../core/types';
 
 export type RobotState =
   | 'idle'
+  | 'parking'
   | 'toPick'
   | 'picking'
   | 'toDeposit'

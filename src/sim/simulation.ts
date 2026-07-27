@@ -17,9 +17,13 @@ import type {
 
 /** consecutive blocked ticks before a robot tries to route around the obstruction */
 const DETOUR_AFTER_BLOCKED = 4;
+/** consecutive blocked ticks before a robot gives ground to break a head-on deadlock */
+const RETREAT_AFTER_BLOCKED = 12;
 
 interface Robot {
   id: number;
+  /** staging cell this robot returns to when it has nothing to do */
+  home: number;
   cell: number;
   prevCell: number;
   state: RobotState;
@@ -50,6 +54,7 @@ const TRAVEL_STATES: ReadonlySet<RobotState> = new Set<RobotState>([
   'toPick',
   'toDeposit',
   'toCharge',
+  'parking',
 ]);
 
 const WORKING_STATES: ReadonlySet<RobotState> = new Set<RobotState>([
@@ -119,6 +124,7 @@ export class Simulation {
       const cellId = starts[i].y * grid.width + starts[i].x;
       this.robots.push({
         id: i,
+        home: cellId,
         cell: cellId,
         prevCell: cellId,
         state: 'idle',
@@ -212,7 +218,7 @@ export class Simulation {
   private assign(): void {
     const idle: Robot[] = [];
     for (const r of this.robots) {
-      if (r.state !== 'idle') continue;
+      if (r.state !== 'idle' && r.state !== 'parking') continue;
       if (this.needsCharge(r) && this.routeToCharge(r)) continue;
       idle.push(r);
     }
@@ -254,6 +260,22 @@ export class Simulation {
     while (this.pendingHead < this.pending.length && this.pending[this.pendingHead] === null) {
       this.pendingHead++;
     }
+
+    // whatever is left has no work: send it back to staging so it stops squatting on
+    // stations and single-width aisles, which is what strands other robots
+    for (const r of idle) {
+      if (r.state === 'idle' && r.cell !== r.home) this.routeHome(r);
+    }
+  }
+
+  private routeHome(r: Robot): void {
+    const path = this.fields.path(r.cell, r.home);
+    if (path === null) return;
+    r.target = r.home;
+    r.path = path;
+    r.pathIndex = 0;
+    r.state = 'parking';
+    r.blockedTicks = 0;
   }
 
   private needsCharge(r: Robot): boolean {
@@ -326,6 +348,14 @@ export class Simulation {
     for (const r of this.robots) {
       r.prevCell = r.cell;
       if (!TRAVEL_STATES.has(r.state)) continue;
+      // a robot that ran out of path without arriving (e.g. after retreating) replans
+      if (r.pathIndex >= r.path.length && r.cell !== r.target && r.target >= 0) {
+        const fresh = this.fields.path(r.cell, r.target);
+        if (fresh !== null) {
+          r.path = fresh;
+          r.pathIndex = 0;
+        }
+      }
       if (r.cooldown > 0) continue;
       if (r.pathIndex >= r.path.length) continue;
       desired.set(r.id, r.path[r.pathIndex]);
@@ -390,7 +420,9 @@ export class Simulation {
       } else if (TRAVEL_STATES.has(r.state)) {
         r.blockedTicks++;
         this.heat[want] += 1;
-        if (r.blockedTicks >= DETOUR_AFTER_BLOCKED) this.detour(r);
+        // id-staggered so two robots meeting head-on never give ground on the same tick
+        if (r.blockedTicks >= RETREAT_AFTER_BLOCKED + (r.id % 3)) this.retreat(r);
+        else if (r.blockedTicks >= DETOUR_AFTER_BLOCKED) this.detour(r);
       }
     }
 
@@ -403,6 +435,9 @@ export class Simulation {
       } else if (r.state === 'toDeposit') {
         r.state = 'depositing';
         r.dwell = Math.max(1, this.config.depositDwell);
+      } else if (r.state === 'parking') {
+        r.state = 'idle';
+        r.target = -1;
       } else {
         r.state = 'charging';
       }
@@ -425,6 +460,19 @@ export class Simulation {
       return nid;
     }
     return -1;
+  }
+
+  /**
+   * Last-resort deadlock breaker: give ground to a free neighbour and replan from there.
+   * Two robots nose-to-nose in a single-width aisle can never resolve by waiting or detouring
+   * (every alternative route is behind one of them), so somebody has to back up.
+   */
+  private retreat(r: Robot): void {
+    const aside = this.freeNeighbor(r.cell, -1);
+    if (aside === -1) return;
+    r.path = [aside];
+    r.pathIndex = 0;
+    r.blockedTicks = 0;
   }
 
   private detour(r: Robot): void {
