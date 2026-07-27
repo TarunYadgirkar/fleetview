@@ -4,6 +4,21 @@ Updated every ~30 min of work. Newest first.
 
 ## Log
 
+### T4 — UI overhaul: explainer page, design system, timeline
+- **Explainer view** ("what is this"): hero, live CBS-vs-naive corridor demo driven by the real
+  solver, 3-step how-it-works, metric glossary. First visit + reopenable via ?.
+- **Design system**: self-hosted Archivo + JetBrains Mono (latin only), lucide icons inlined,
+  `motion/mini` for animation. All bundled — no CDN, still runs offline. Spline rejected (3D
+  runtime, network-dependent); see DECISIONS D17.
+- **Planner**: interpolated robot motion + trails, rack depth, legend, robot inspector, wheel
+  zoom / drag pan, toasts, progress bar, keyboard shortcuts, verdict sentence.
+- **New feature**: sampled run timeline + chart (completed / busy / queue over time).
+- Bug fixed: metrics never rendered in a background tab (count-up was rAF-only).
+- Defaults retuned by measurement against the real fleet spec (DECISIONS D19). Found congestion
+  collapse: with turn costs, an 8-robot fleet's throughput *falls* as demand rises.
+- Mobile: transport re-laid out so the scrubber gets a full-width row; no horizontal overflow.
+- **65 tests green.** 19.3 kB gzipped JS.
+
 ### T3 — COMPLETE: whole spec green, app built, deployed
 - Simulation, metrics, fleet sweep, presets, layout JSON, worker, UI all implemented.
 - **60 tests green**, strict typecheck clean, production build 8.2 kB gzipped JS.

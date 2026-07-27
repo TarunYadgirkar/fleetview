@@ -7,8 +7,9 @@
 npm install && npm test && npm run dev
 ```
 
-60 tests green. Build is clean under `tsc --noEmit` with strict mode. Bundle is 8.2 kB gzipped
-JS + 1.8 kB CSS, no runtime dependencies, no network calls at runtime.
+65 tests green. Build is clean under `tsc --noEmit` with strict mode. Bundle is 19.3 kB gzipped
+JS + 3.8 kB CSS + three self-hosted latin font files. Everything is bundled — no CDN, no network
+calls at runtime, works offline from `dist/`.
 
 ## What works
 
@@ -45,6 +46,17 @@ saturation knee detection.
 tracing, validated JSON import/export, three realistic presets, Web Worker execution, canvas
 rendering, playback with scrub and 1×–16× speed, congestion overlay.
 
+**Explainer view.** A landing page whose signature runs the real solver live — naive routing
+deadlocking beside CBS solving the same corridor optimally. Shown on first visit, reopenable
+from the planner. Because it calls `cbs()` directly, a regression in the solver is visible on
+the front page.
+
+**Interface.** Self-hosted Archivo + JetBrains Mono, inlined lucide icons, `motion/mini` for
+entrances and feedback (all reduced-motion aware). Interpolated robot movement with motion
+trails, rack depth shading, floor legend, click-to-inspect robots, wheel zoom and drag pan,
+toasts, progress bar, keyboard shortcuts, a run-timeline chart, and a plain-English verdict on
+every result.
+
 ## What is stubbed or deliberately limited
 
 Nothing is stubbed behind a fake interface — every module listed in `SPEC.md` is implemented.
@@ -65,7 +77,11 @@ The real limitations:
 5. **Turn cost and battery are outside CBS optimality grading** (DECISIONS D4), so fixture optima
    stay comparable to the MAPF literature.
 6. **PNG tracing is manual.** The image is a backdrop; you draw the geometry yourself.
-7. **No persistence.** Layouts survive only via JSON export.
+7. **No persistence.** Layouts survive only via JSON export. Only the "seen the intro" flag is
+   stored in `localStorage`.
+8. **The robot inspector infers load and battery** from the robot's state code, because the
+   recorded playback frames carry cell + state only. Exact carried count and battery level would
+   need two more arrays in the frame buffer.
 
 ## Three highest-value next steps
 

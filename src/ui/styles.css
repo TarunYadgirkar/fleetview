@@ -1052,6 +1052,38 @@ select:focus-visible {
   }
 }
 
+@media (max-width: 760px) {
+  /* the scrubber needs the full width to be usable; give it its own row */
+  .transport {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "play meta"
+      "rule rule";
+    gap: 0.5rem 0.75rem;
+    align-items: center;
+  }
+
+  .btn--play {
+    grid-area: play;
+  }
+
+  .transport__meta {
+    grid-area: meta;
+    justify-content: flex-end;
+  }
+
+  .rule {
+    grid-area: rule;
+    padding-top: 0.65rem;
+  }
+
+  .speeds .btn {
+    padding: 0.3rem 0.35rem;
+    font-size: 0.62rem;
+  }
+}
+
 @media (max-width: 620px) {
   .intro__inner {
     padding: 1.25rem 1.1rem 3.5rem;

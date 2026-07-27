@@ -35,6 +35,14 @@ npm run build
 host it anywhere. There is no server component and no external network dependency at runtime
 (system fonts only, so it works offline).
 
+## The explainer
+
+First visit opens a "what is this" page. Its centrepiece runs the **real solver live**: the same
+corridor-swap instance planned two ways, side by side — per-robot routing (deadlocks) against
+Conflict-Based Search (solves it at the provably cheapest cost). It is the product's argument,
+demonstrated rather than asserted, and it re-renders from the actual `cbs()` implementation, so
+it cannot drift away from the code. Reopen it any time with the **?** button in the planner.
+
 ## What you can do
 
 **Draw a floor.** Pick a tool from the left rail and paint on the grid: walls, racks, pick
@@ -54,7 +62,14 @@ travel, pick, deposit, recharge, and return to staging. The run happens in a Web
 UI stays responsive.
 
 **Read the results.** Orders per hour, robot utilisation, mean and p95 order latency, and a
-congestion overlay showing per-cell contention accumulated over the run.
+congestion overlay showing per-cell contention accumulated over the run. A timeline chart plots
+completed orders, robots working and queue depth across the run — that is where warm-up,
+saturation and late queue growth show up. A plain-English verdict states the conclusion:
+oversubscribed, over-provisioned, or balanced.
+
+**Inspect what happened.** Click any robot during playback to see its state, cell and load.
+Scroll to zoom, drag with the middle or right mouse button to pan, `0` resets the view.
+Keyboard: `1`–`7` pick a draw tool, `space` plays/pauses, `r` runs, `h` toggles the heatmap.
 
 **Find the right fleet size.** The sweep runs one simulation per fleet size and plots
 throughput against fleet size, marking the saturation knee — the smallest fleet that still
@@ -86,7 +101,15 @@ src/core/pathfinding/
   mapf.ts            planner facade: CBS within a budget, else fallback
 src/sim/             orders, distance fields, simulation, metrics, fleet sweep, ROI
 src/worker/          worker entry + message protocol
-src/ui/              canvas renderer, editor, panels, charts
+src/ui/
+  app.ts             planner controller
+  renderer.ts        canvas floor renderer (interpolation, trails, heat)
+  intro.ts           explainer view
+  demo.ts            live CBS-vs-naive corridor animation
+  charts.ts          timeline + fleet-size curve
+  icons.ts           inlined lucide SVG
+  motion.ts          reduced-motion-aware animation helpers
+  toast.ts           transient notices
 src/presets/         three demo layouts
 tests/               acceptance suite
 ```
@@ -111,7 +134,7 @@ detected. See `DECISIONS.md` (D4, D13, D15).
 npm test
 ```
 
-60 tests covering:
+65 tests covering:
 
 - **MAPF optimality** — 8 hand-verified instances (corridor swap, bottleneck, cyclic rotation,
   adjacent swap, and others); CBS must match the known optimal sum-of-costs on each.
@@ -121,7 +144,8 @@ npm test
   snapshots.
 - **Degenerate layouts** — single corridor, fully blocked, zero robots, 200 robots.
 - **Performance** — 50 robots on a 100×100 grid, 10,000 ticks in under 10 s (currently ~2 s).
-- Presets, layout validation, ROI, and playback frame capture.
+- Presets, layout validation, ROI, playback frame capture, and the run timeline (bounded
+  sample count, monotonic completions, closes on the true final tick).
 
 ## Documents
 

@@ -101,6 +101,36 @@ Per-cell accumulation of (a) robot-occupancy per tick and (b) each blocked move 
 cell. Occupancy alone shows traffic; the denial term is what surfaces genuine contention, so
 hotspots reflect conflict, not just popularity.
 
+## D17 — Bundled libraries only; no Spline, no CDN
+Asked to use animation/icon libraries "like Spline". Constraint that wins: SPEC §1.7 and the
+brief require a single-page app that runs from a static file. Anything fetched at runtime breaks
+that and the offline guarantee. Resolution: use real libraries, but bundle them — `motion/mini`
+for animation, `lucide` for icons, `@fontsource-variable/*` self-hosted for type. Spline
+specifically was rejected on two counts: it is a 3D scene runtime that downloads a player plus
+scene at runtime, and a 3D hero is the wrong instrument for a dense 2D planning tool.
+
+## D18 — The landing animation is the real solver, not a decorative loop
+The explainer's signature element runs `cbs()` and a naive stepper live on the same corridor
+fixture and animates both outcomes side by side (deadlock vs optimal, cost 7). Chosen over a
+generic hero because the product's whole claim is "coordinated planning beats per-robot
+routing", and showing the actual algorithm proving it is both honest and more persuasive than
+an illustration. It also cannot drift out of sync with the implementation — if CBS regresses,
+the landing page visibly breaks.
+
+## D19 — Defaults chosen by measurement, not taste
+The starting configuration was swept (8/12/16 robots × 4 arrival rates) against the *real* UI
+fleet spec — turn cost 1 and a finite battery, not the library defaults. Turn cost changes the
+answer substantially, and above ~0.07 orders/tick an 8-robot fleet's throughput *falls* as
+demand rises (congestion collapse, not capacity). Settled on 12 robots @ 0.07: 54% utilisation,
+~208 orders/hour, backlog under control — busy enough to be interesting, balanced enough that
+the first run does not open with a failure verdict.
+
+## D20 — Results speak in sentences, not just numbers
+A "verdict" line reads the metrics and states the conclusion (oversubscribed / over-provisioned
+/ balanced), and a sampled timeline chart shows how the run unfolded. End-state numbers alone
+hid warm-up, saturation and late queue growth, and readers who do not already know what p95
+means got nothing actionable from six figures in a grid.
+
 ## D11 — Order distribution: Poisson arrivals (seeded) with fixed-interval option
 Poisson is the realistic default for order arrivals; a fixed-interval mode makes some tests
 trivially deterministic to reason about. Both flow through the one seeded PRNG.
