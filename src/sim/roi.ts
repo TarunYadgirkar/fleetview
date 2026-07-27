@@ -20,6 +20,22 @@ export interface RoiResult {
   roiPct: number;
 }
 
-export function computeRoi(_inputs: RoiInputs): RoiResult {
-  throw new Error('not implemented: computeRoi');
+export function computeRoi(inputs: RoiInputs): RoiResult {
+  const horizonYears = inputs.horizonYears ?? 5;
+  const capex = inputs.robots * inputs.hardwareCostPerRobot;
+  const annualLaborSaved = inputs.workersDisplaced * inputs.annualLaborCostPerWorker;
+  const annualOpsCost = inputs.robots * inputs.annualOpsCostPerRobot;
+  const annualNetSaving = annualLaborSaved - annualOpsCost;
+
+  const paybackMonths = annualNetSaving > 0 ? capex / (annualNetSaving / 12) : Infinity;
+  const roiPct = capex > 0 ? ((annualNetSaving * horizonYears - capex) / capex) * 100 : 0;
+
+  return {
+    capex,
+    annualLaborSaved,
+    annualOpsCost,
+    annualNetSaving,
+    paybackMonths,
+    roiPct,
+  };
 }
