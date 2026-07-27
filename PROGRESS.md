@@ -4,6 +4,19 @@ Updated every ~30 min of work. Newest first.
 
 ## Log
 
+### T3 — COMPLETE: whole spec green, app built, deployed
+- Simulation, metrics, fleet sweep, presets, layout JSON, worker, UI all implemented.
+- **60 tests green**, strict typecheck clean, production build 8.2 kB gzipped JS.
+- Perf: 50 robots / 100×100 / 10k ticks in ~2.1 s (budget 10 s).
+- Deployed: https://fleetview-taruns-projects-248def65.vercel.app (verified running in prod).
+- Repo public: https://github.com/TarunYadgirkar/fleetview
+- Three bugs found and fixed by the invariant/UI checks, not by guessing:
+  occupancy-map corruption on follower moves; idle robots squatting on stations stranding orders;
+  saturation knee misreported at 4 robots on a curve still climbing to 16.
+- Two tests corrected as genuinely wrong, both made *stronger*, logged in DECISIONS D12/D14.
+- **Next**: see HANDOFF.md — windowed CBS in the live loop, better task assignment, PNG auto-trace.
+- **Blocked**: nothing.
+
 ### T2 — MAPF core + ROI GREEN (checkpoint: user restarting machine)
 - **CBS optimal core GREEN**: all 25 MAPF tests pass — optimal SOC on all 8 fixtures, valid
   conflict-free solutions, determinism, prioritized fallback, CBS-necessity proven (prioritized
@@ -39,15 +52,15 @@ Updated every ~30 min of work. Newest first.
 ## Status board
 - [x] Scaffold + config
 - [x] SPEC / DECISIONS / DEPENDENCIES
-- [ ] Acceptance tests authored (RED)
-- [ ] RNG + grid + types
-- [ ] Space-time A*
-- [ ] CBS
-- [ ] Prioritized fallback + planner facade
-- [ ] Order gen + robot + simulation + invariants
-- [ ] Metrics + fleet-size scan
-- [ ] Web worker
-- [ ] UI: editor, canvas, playback, panels, PNG trace
-- [ ] 3 presets
-- [ ] README + HANDOFF
-- [ ] Deploy to Vercel
+- [x] Acceptance tests authored (RED)
+- [x] RNG + grid + types
+- [x] Space-time A*
+- [x] CBS
+- [x] Prioritized fallback + planner facade
+- [x] Order gen + robot + simulation + invariants
+- [x] Metrics + fleet-size scan
+- [x] Web worker
+- [x] UI: editor, canvas, playback, panels, PNG trace
+- [x] 3 presets
+- [x] README + HANDOFF
+- [x] Deploy to Vercel
