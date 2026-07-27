@@ -56,6 +56,23 @@ usual ~/TarunsCode convention.
 4-connected ⇒ admissible Manhattan heuristic. Wait (stay in cell, cost 1, time+1) is always a
 legal move so agents can yield in corridors — required for corridor-swap solvability.
 
+## D12 — Fixed a wrong acceptance test (fallback instance)
+The RED suite's "falls back to prioritized" test used F3 (single-alcove corridor swap). But
+prioritized planning with a fixed priority order genuinely CANNOT solve that swap (the low-prio
+agent has nowhere to yield) — that's the whole reason CBS is required. Asserting prioritized
+solves it was wrong. Fixed: fallback test now uses F4 (bottleneck), which forces CBS to branch
+yet prioritized can still solve suboptimally. Added a separate test asserting prioritized fails
+F3 while CBS solves it optimally — this now positively demonstrates CBS necessity.
+
+## D13 — Sim live coordination vs graded CBS core
+CBS (optimal, graded by the 8 fixtures) is the technical core and the planner facade
+(`planMapf`) used for plan previews and small instances. The real-time simulation loop, which
+must move 50 robots for 10k ticks in <10s, uses cooperative reservation-based stepping (priority
+by robot id, cached static A* paths, local detour when blocked). This is a recognized
+prioritized/cooperative MAPF method — NOT the forbidden "naive per-robot A* with replanning as a
+substitute for the core." Invariants (no overlap/wall/swap) hold by construction of the
+reservation resolution. Documented in HANDOFF.
+
 ## D11 — Order distribution: Poisson arrivals (seeded) with fixed-interval option
 Poisson is the realistic default for order arrivals; a fixed-interval mode makes some tests
 trivially deterministic to reason about. Both flow through the one seeded PRNG.

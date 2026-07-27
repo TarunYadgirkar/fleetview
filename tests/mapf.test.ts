@@ -31,11 +31,26 @@ describe('planMapf facade', () => {
   }
 
   it('falls back to prioritized when CBS budget is exhausted', () => {
-    const grid = fromStrings(FIXTURES[2].rows); // corridor swap needs CBS work
-    const result = planMapf(grid, FIXTURES[2].agents, { maxExpansions: 1 });
+    // F4 bottleneck forces CBS to branch; prioritized can still solve it (suboptimally)
+    const fx = FIXTURES[3];
+    const grid = fromStrings(fx.rows);
+    const result = planMapf(grid, fx.agents, { maxExpansions: 1 });
     expect(result.solved).toBe(true);
     expect(result.strategy).toBe('prioritized');
-    assertValidSolution(grid, FIXTURES[2].agents, result);
+    assertValidSolution(grid, fx.agents, result);
+    expect(result.cost).toBeGreaterThanOrEqual(fx.optimalCost);
+  });
+});
+
+describe('CBS is necessary: prioritized fails the corridor swap', () => {
+  it('prioritized cannot solve the single-alcove swap, CBS solves it optimally', () => {
+    const fx = FIXTURES[2]; // F3 corridor swap
+    const grid = fromStrings(fx.rows);
+    const prio = prioritizedPlanning(grid, fx.agents);
+    expect(prio.solved).toBe(false);
+    const opt = cbs(grid, fx.agents);
+    expect(opt.solved).toBe(true);
+    expect(opt.cost).toBe(fx.optimalCost);
   });
 });
 
