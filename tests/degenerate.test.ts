@@ -16,18 +16,35 @@ function stepAllChecking(sim: Simulation, cap = 20000): number {
 }
 
 describe('degenerate layouts', () => {
-  it('single corridor: robots serialize, invariants hold, orders complete', () => {
+  it('single corridor, one robot: every accepted order completes', () => {
     // 1-tall corridor with pick at left, deposit at right
+    const grid = fromStrings(['P..........D']);
+    const starts: Cell[] = [{ x: 1, y: 0 }];
+    const config = { ...defaultSimConfig(3), maxTicks: 4000, orderCount: 12, orderRate: 0.4 };
+    const sim = new Simulation(grid, defaultFleetSpec(1), config, starts);
+    stepAllChecking(sim);
+    const m = sim.metrics();
+    expect(m.ordersAccepted).toBe(12);
+    expect(m.ordersCompleted).toBe(m.ordersAccepted);
+    expect(m.itemsPicked - m.itemsDeposited - m.itemsInTransit).toBe(0);
+  });
+
+  it('single corridor, two robots: head-on deadlock is contained, never illegal', () => {
+    // A dead-end 1-wide corridor cannot host two opposing full-length traversals — no planner
+    // can solve it (see DECISIONS D14). What MUST hold is that the sim degrades safely:
+    // invariants every tick, no crash, no phantom completions, items conserved.
     const grid = fromStrings(['P..........D']);
     const starts: Cell[] = [
       { x: 1, y: 0 },
       { x: 2, y: 0 },
     ];
-    const config = { ...defaultSimConfig(3), maxTicks: 4000, orderCount: 12, orderRate: 0.4 };
+    const config = { ...defaultSimConfig(3), maxTicks: 1500, orderCount: 12, orderRate: 0.4 };
     const sim = new Simulation(grid, defaultFleetSpec(2), config, starts);
     stepAllChecking(sim);
     const m = sim.metrics();
-    expect(m.ordersCompleted).toBe(m.ordersAccepted);
+    expect(sim.tick).toBe(1500);
+    expect(m.ordersCompleted).toBeLessThanOrEqual(m.ordersAccepted);
+    expect(m.itemsPicked - m.itemsDeposited - m.itemsInTransit).toBe(0);
   });
 
   it('fully blocked: no crash, physical invariants hold, nothing completes', () => {

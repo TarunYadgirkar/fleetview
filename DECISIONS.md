@@ -73,6 +73,34 @@ prioritized/cooperative MAPF method — NOT the forbidden "naive per-robot A* wi
 substitute for the core." Invariants (no overlap/wall/swap) hold by construction of the
 reservation resolution. Documented in HANDOFF.
 
+## D14 — Corrected an impossible degenerate assertion (1-wide corridor, 2 robots)
+The RED suite asserted that 2 robots in a dead-end 1-tall corridor (`P..........D`) complete all
+orders. That is physically unsolvable, not a planner weakness: both robots must traverse the full
+corridor in opposing directions, and a 1-wide dead-end corridor has no siding, so any meeting is
+a hard deadlock. Verified against the implementation (0/12 completed — deadlock at first meeting,
+exactly as predicted). Retreat-and-yield does not help: pushing the blocker to either end just
+relocates the deadlock to that end.
+
+Rather than weaken the case, it was split into two **stronger** ones:
+- 1 robot: every accepted order completes (proves the corridor itself works end-to-end).
+- 2 robots: invariants hold every tick, run reaches maxTicks without crashing, no phantom
+  completions, items conserved (proves safe degradation under infeasible demand).
+Net coverage went up, not down.
+
+## D15 — Movement safety is structural, not policed
+Reservation stepping ("a cell may be entered only if empty or already vacated this tick, and each
+cell is claimed at most once") makes vertex collisions and edge swaps *impossible to represent*
+rather than detected-and-repaired. `checkInvariants()` is therefore an independent audit of the
+model, not the mechanism enforcing it — which is what makes it meaningful as a test oracle.
+It caught one real bug during bring-up: the apply phase cleared a mover's old cell after a
+follower had already claimed it, corrupting the occupancy map. Fixed by clearing all vacated
+cells before claiming any.
+
+## D16 — Congestion heatmap counts occupancy plus denied moves
+Per-cell accumulation of (a) robot-occupancy per tick and (b) each blocked move attempt onto that
+cell. Occupancy alone shows traffic; the denial term is what surfaces genuine contention, so
+hotspots reflect conflict, not just popularity.
+
 ## D11 — Order distribution: Poisson arrivals (seeded) with fixed-interval option
 Poisson is the realistic default for order arrivals; a fixed-interval mode makes some tests
 trivially deterministic to reason about. Both flow through the one seeded PRNG.
