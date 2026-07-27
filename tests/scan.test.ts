@@ -20,6 +20,16 @@ describe('throughput vs fleet-size curve', () => {
     // saturation is one of the tested sizes and not the smallest
     expect(sizes).toContain(curve.saturationFleetSize);
     expect(curve.saturationFleetSize).toBeGreaterThan(1);
+
+    // it is the *smallest* fleet within 95% of peak throughput: the knee, not an early dip
+    const peak = Math.max(...curve.points.map((p) => p.ordersPerHour));
+    const knee = curve.points.find((p) => p.fleetSize === curve.saturationFleetSize)!;
+    expect(knee.ordersPerHour).toBeGreaterThanOrEqual(peak * 0.95);
+    for (const p of curve.points) {
+      if (p.fleetSize < curve.saturationFleetSize) {
+        expect(p.ordersPerHour).toBeLessThan(peak * 0.95);
+      }
+    }
   });
 
   it('is deterministic', () => {

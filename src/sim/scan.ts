@@ -17,13 +17,14 @@ export interface ThroughputCurve {
   saturationFleetSize: number;
 }
 
-/** fraction of the best marginal gain below which extra robots are deemed wasted */
-const SATURATION_GAIN_RATIO = 0.2;
+/** share of peak throughput that counts as "no longer worth adding robots" */
+const SATURATION_SHARE = 0.95;
 
 /**
  * Sweep fleet sizes, running one independent deterministic simulation per size, and locate the
- * saturation knee: the first size after which each additional robot buys less than
- * SATURATION_GAIN_RATIO of the best per-robot marginal throughput seen so far.
+ * saturation knee: the smallest fleet that still reaches SATURATION_SHARE of the best
+ * throughput observed. Marginal-gain thresholds were tried first and misfire on real curves —
+ * a small dip early in the sweep reads as saturation long before the curve actually flattens.
  */
 export function throughputCurve(
   grid: Grid,
@@ -54,24 +55,14 @@ export function throughputCurve(
 
 function findSaturation(points: CurvePoint[]): number {
   if (points.length === 0) return 0;
-  if (points.length === 1) return points[0].fleetSize;
 
-  let bestGainPerRobot = 0;
-  const gains: number[] = [];
-  for (let i = 1; i < points.length; i++) {
-    const deltaRobots = points[i].fleetSize - points[i - 1].fleetSize;
-    const gain =
-      deltaRobots > 0 ? (points[i].ordersPerHour - points[i - 1].ordersPerHour) / deltaRobots : 0;
-    gains.push(gain);
-    if (gain > bestGainPerRobot) bestGainPerRobot = gain;
-  }
+  let peak = 0;
+  for (const p of points) if (p.ordersPerHour > peak) peak = p.ordersPerHour;
+  if (peak <= 0) return points[points.length - 1].fleetSize;
 
-  if (bestGainPerRobot <= 0) return points[points.length - 1].fleetSize;
-
-  for (let i = 0; i < gains.length; i++) {
-    if (gains[i] < bestGainPerRobot * SATURATION_GAIN_RATIO) {
-      return points[i].fleetSize;
-    }
+  const target = peak * SATURATION_SHARE;
+  for (const p of points) {
+    if (p.ordersPerHour >= target) return p.fleetSize;
   }
   return points[points.length - 1].fleetSize;
 }

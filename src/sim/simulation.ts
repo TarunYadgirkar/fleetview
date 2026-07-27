@@ -15,6 +15,18 @@ import type {
   SimSnapshot,
 } from './types';
 
+/** playback frame encoding: state index in this array is what writeFrame emits */
+export const STATE_CODES: readonly RobotState[] = [
+  'idle',
+  'parking',
+  'toPick',
+  'picking',
+  'toDeposit',
+  'depositing',
+  'toCharge',
+  'charging',
+];
+
 /** consecutive blocked ticks before a robot tries to route around the obstruction */
 const DETOUR_AFTER_BLOCKED = 4;
 /** consecutive blocked ticks before a robot gives ground to break a head-on deadlock */
@@ -492,6 +504,21 @@ export class Simulation {
     r.path = path.slice(1).map((c) => c.y * width + c.x);
     r.pathIndex = 0;
     r.blockedTicks = 0;
+  }
+
+  get robotCount(): number {
+    return this.robots.length;
+  }
+
+  /**
+   * Allocation-free frame capture for playback recording. Writes one entry per robot at
+   * `offset`: its cell id and its state code (index into STATE_CODES).
+   */
+  writeFrame(cells: Int32Array, states: Uint8Array, offset: number): void {
+    for (let i = 0; i < this.robots.length; i++) {
+      cells[offset + i] = this.robots[i].cell;
+      states[offset + i] = STATE_CODES.indexOf(this.robots[i].state);
+    }
   }
 
   snapshot(): SimSnapshot {

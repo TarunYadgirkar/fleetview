@@ -50,7 +50,7 @@ function buildFulfillmentCenter(): Layout {
   return {
     name: 'Fulfillment Centre',
     grid,
-    robots: collectHomes(grid, 64),
+    robots: collectHomes(grid, 12),
     cellSizePx: 20,
   };
 }
@@ -81,7 +81,7 @@ function buildCrossDock(): Layout {
   return {
     name: 'Cross-Dock Sortation',
     grid,
-    robots: collectHomes(grid, 96),
+    robots: collectHomes(grid, 12),
     cellSizePx: 18,
   };
 }
@@ -117,7 +117,7 @@ function buildColdStorage(): Layout {
   return {
     name: 'Dense Cold Storage',
     grid,
-    robots: collectHomes(grid, 64),
+    robots: collectHomes(grid, 12),
     cellSizePx: 20,
   };
 }
