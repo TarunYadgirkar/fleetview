@@ -1,47 +1,65 @@
 import { cellAt, createGrid, isPassable, setCellInPlace } from '../core/grid';
-import {
-  type Layout,
-  deserializeLayout,
-  serializeLayout,
-} from '../core/layout';
+import { type Layout, deserializeLayout, serializeLayout } from '../core/layout';
 import type { Cell, CellType } from '../core/types';
 import { PRESETS } from '../presets';
 import { computeRoi } from '../sim/roi';
 import type { ThroughputCurve } from '../sim/scan';
+import { STATE_CODES } from '../sim/simulation';
 import { defaultSimConfig, type FleetSpec, type SimConfig } from '../sim/types';
 import type { RunPayload, WorkerRequest, WorkerResponse } from '../worker/protocol';
 import { drawCurve } from './charts';
 import { $, formatMoney, num, setText } from './dom';
-import { PALETTE, Renderer } from './renderer';
+import { type IconName, icon } from './icons';
+import { Intro } from './intro';
+import { countTo, pop, revealGroup } from './motion';
+import { LEGEND, Renderer, type RobotFrame, cellColor } from './renderer';
+import { toast } from './toast';
 
-const TOOLS: { id: CellType | 'robot'; label: string; color: string }[] = [
-  { id: 'empty', label: 'Floor / erase', color: PALETTE.concrete },
-  { id: 'wall', label: 'Wall', color: PALETTE.wall },
-  { id: 'rack', label: 'Rack', color: PALETTE.steel },
-  { id: 'pick', label: 'Pick station', color: PALETTE.paint },
-  { id: 'deposit', label: 'Deposit lane', color: PALETTE.lane },
-  { id: 'charge', label: 'Charge dock', color: PALETTE.charge },
-  { id: 'robot', label: 'Robot home', color: PALETTE.hivis },
+const TOOLS: { id: CellType | 'robot'; label: string; key: string; iconName: IconName }[] = [
+  { id: 'empty', label: 'Floor / erase', key: '1', iconName: 'eraser' },
+  { id: 'wall', label: 'Wall', key: '2', iconName: 'wall' },
+  { id: 'rack', label: 'Rack', key: '3', iconName: 'stack' },
+  { id: 'pick', label: 'Pick station', key: '4', iconName: 'boxes' },
+  { id: 'deposit', label: 'Deposit lane', key: '5', iconName: 'route' },
+  { id: 'charge', label: 'Charge dock', key: '6', iconName: 'plug' },
+  { id: 'robot', label: 'Robot home', key: '7', iconName: 'truck' },
 ];
 
 const SPEEDS = [1, 2, 4, 8, 16];
-const FRAMES_PER_SECOND = 30;
+const BASE_FPS = 30;
+const TRAIL_LENGTH = 5;
+
+const STATE_LABEL: Record<string, string> = {
+  idle: 'Idle',
+  parking: 'Returning',
+  toPick: 'To pick',
+  picking: 'Picking',
+  toDeposit: 'To deposit',
+  depositing: 'Depositing',
+  toCharge: 'To charger',
+  charging: 'Charging',
+};
 
 export class App {
   private layout: Layout = PRESETS[0].build();
   private backdrop: HTMLImageElement | null = null;
   private backdropOpacity = 0.5;
   private showHeatmap = false;
+  private showTrails = true;
   private tool: CellType | 'robot' = 'wall';
   private run: RunPayload | null = null;
   private curve: ThroughputCurve | null = null;
   private frame = 0;
+  private frameProgress = 0;
   private playing = false;
   private speed = 4;
   private hoverCell = -1;
   private painting = false;
+  private panning = false;
+  private lastPointer = { x: 0, y: 0 };
+  private selectedRobot = -1;
   private requestId = 0;
-  private lastFrameTime = 0;
+  private lastTime = 0;
 
   private readonly renderer: Renderer;
   private readonly worker: Worker;
@@ -59,8 +77,20 @@ export class App {
     this.buildSpeeds();
     this.buildPresetOptions();
     this.buildRuleTicks();
+    this.buildLegend();
+    this.buildPanelIcons();
     this.bindCanvas();
     this.bindControls();
+    this.bindKeyboard();
+
+    new Intro(document.querySelector<HTMLElement>('.app')!, {
+      onEnter: () => this.onEnterPlanner(),
+      onLoadPreset: () => {
+        $<HTMLSelectElement>('preset').value = '1';
+        this.loadPreset(1);
+        toast('Loaded the cross-dock floor. Hit Run simulation.', 'info');
+      },
+    });
 
     window.addEventListener('resize', () => this.redraw());
     this.syncFloorInputs();
@@ -69,23 +99,37 @@ export class App {
     requestAnimationFrame((t) => this.tickPlayback(t));
   }
 
-  /* ---------- chrome construction ---------- */
+  private onEnterPlanner(): void {
+    this.redraw();
+    revealGroup(document.querySelectorAll('.panels .panel'), 0.02);
+  }
+
+  /* ---------- chrome ---------- */
 
   private buildTools(): void {
     const host = $('tool-list');
+    host.innerHTML = '';
     for (const tool of TOOLS) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn tool';
       btn.setAttribute('role', 'radio');
       btn.dataset.tool = tool.id;
-      btn.innerHTML = `<span class="tool__chip" style="background:${tool.color}"></span><span>${tool.label}</span>`;
-      btn.addEventListener('click', () => {
-        this.tool = tool.id;
-        this.syncToolButtons();
-      });
+      const swatch =
+        tool.id === 'robot'
+          ? '#ff6a1a'
+          : cellColor(tool.id as CellType);
+      btn.innerHTML =
+        `<span class="tool__chip" style="background:${swatch}"></span>` +
+        `<span>${tool.label}</span><kbd>${tool.key}</kbd>`;
+      btn.addEventListener('click', () => this.selectTool(tool.id));
       host.appendChild(btn);
     }
+    this.syncToolButtons();
+  }
+
+  private selectTool(tool: CellType | 'robot'): void {
+    this.tool = tool;
     this.syncToolButtons();
   }
 
@@ -99,6 +143,7 @@ export class App {
 
   private buildSpeeds(): void {
     const host = $('speeds');
+    host.innerHTML = '';
     for (const speed of SPEEDS) {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -122,6 +167,7 @@ export class App {
 
   private buildPresetOptions(): void {
     const select = $<HTMLSelectElement>('preset');
+    select.innerHTML = '';
     PRESETS.forEach((preset, i) => {
       const option = document.createElement('option');
       option.value = String(i);
@@ -129,14 +175,17 @@ export class App {
       option.title = preset.description;
       select.appendChild(option);
     });
-    select.addEventListener('change', () => {
-      const preset = PRESETS[Number(select.value)];
-      if (!preset) return;
-      this.layout = preset.build();
-      this.invalidateRun();
-      this.syncFloorInputs();
-      this.redraw();
-    });
+    select.addEventListener('change', () => this.loadPreset(Number(select.value)));
+  }
+
+  private loadPreset(index: number): void {
+    const preset = PRESETS[index];
+    if (!preset) return;
+    this.layout = preset.build();
+    this.renderer.resetView();
+    this.invalidateRun();
+    this.syncFloorInputs();
+    this.redraw();
   }
 
   private buildRuleTicks(): void {
@@ -149,37 +198,103 @@ export class App {
     }
   }
 
-  /* ---------- editing ---------- */
+  private buildLegend(): void {
+    const host = $('legend');
+    host.innerHTML = LEGEND.map(
+      (entry) =>
+        `<span class="legend__item"><span class="legend__swatch" style="background:${cellColor(
+          entry.type,
+        )}"></span>${entry.label}</span>`,
+    ).join('');
+  }
+
+  private buildPanelIcons(): void {
+    for (const title of document.querySelectorAll<HTMLElement>('.panel__title[data-icon]')) {
+      title.insertAdjacentHTML('afterbegin', icon(title.dataset.icon as IconName, 14));
+    }
+    $('show-intro').innerHTML = icon('help', 15);
+  }
+
+  /* ---------- canvas interaction ---------- */
 
   private bindCanvas(): void {
     const canvas = this.canvas;
+
     canvas.addEventListener('pointerdown', (e) => {
       canvas.setPointerCapture(e.pointerId);
+      this.lastPointer = { x: e.clientX, y: e.clientY };
+      // middle button, or space-less right drag, pans instead of painting
+      if (e.button === 1 || e.button === 2) {
+        this.panning = true;
+        return;
+      }
+      if (this.run) {
+        this.selectRobotAt(e);
+        return;
+      }
       this.painting = true;
       this.paintAt(e);
     });
+
     canvas.addEventListener('pointermove', (e) => {
+      if (this.panning) {
+        this.renderer.panBy(e.clientX - this.lastPointer.x, e.clientY - this.lastPointer.y);
+        this.lastPointer = { x: e.clientX, y: e.clientY };
+        this.redraw();
+        return;
+      }
       const cell = this.cellFromEvent(e);
       this.hoverCell = cell ? cell.y * this.layout.grid.width + cell.x : -1;
       setText('hud-cell', cell ? `x ${cell.x}  y ${cell.y}` : '—');
       if (this.painting) this.paintAt(e);
       else this.redraw();
     });
+
     const stop = () => {
       this.painting = false;
+      this.panning = false;
     };
     canvas.addEventListener('pointerup', stop);
     canvas.addEventListener('pointercancel', stop);
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     canvas.addEventListener('pointerleave', () => {
       this.hoverCell = -1;
       setText('hud-cell', '—');
       this.redraw();
     });
+
+    canvas.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+        this.renderer.setZoom(
+          this.renderer.zoomLevel * factor,
+          e.clientX - rect.left,
+          e.clientY - rect.top,
+        );
+        this.redraw();
+      },
+      { passive: false },
+    );
   }
 
   private cellFromEvent(e: PointerEvent): Cell | null {
     const rect = this.canvas.getBoundingClientRect();
     return this.renderer.screenToCell(this.layout.grid, e.clientX - rect.left, e.clientY - rect.top);
+  }
+
+  private selectRobotAt(e: PointerEvent): void {
+    const cell = this.cellFromEvent(e);
+    if (!cell || !this.run) return;
+    const id = cell.y * this.layout.grid.width + cell.x;
+    const frame = this.currentFrameCells();
+    if (!frame) return;
+    const found = frame.indexOf(id);
+    this.selectedRobot = found;
+    this.updateInspector();
+    this.redraw();
   }
 
   private paintAt(e: PointerEvent): void {
@@ -212,10 +327,16 @@ export class App {
       this.layout.robots = [];
       this.invalidateRun();
       this.redraw();
+      toast('Floor cleared.', 'info');
     });
 
     $('show-heat').addEventListener('change', (e) => {
       this.showHeatmap = (e.target as HTMLInputElement).checked;
+      if (this.showHeatmap && !this.run) toast('Run a simulation to collect congestion.', 'info');
+      this.redraw();
+    });
+    $('show-trails').addEventListener('change', (e) => {
+      this.showTrails = (e.target as HTMLInputElement).checked;
       this.redraw();
     });
 
@@ -238,23 +359,66 @@ export class App {
 
     $('run').addEventListener('click', () => this.startRun());
     $('sweep').addEventListener('click', () => this.startSweep());
-
-    $('play').addEventListener('click', () => {
-      this.playing = !this.playing;
-      setText('play', this.playing ? 'Pause' : 'Play');
+    $('play').addEventListener('click', () => this.togglePlay());
+    $('inspector-close').addEventListener('click', () => {
+      this.selectedRobot = -1;
+      $('inspector').hidden = true;
+      this.redraw();
     });
 
     const scrub = $<HTMLInputElement>('scrub');
     scrub.addEventListener('input', () => {
       this.frame = Number(scrub.value);
+      this.frameProgress = 0;
       this.playing = false;
-      setText('play', 'Play');
+      this.syncPlayLabel();
       this.redraw();
     });
 
     for (const id of ['r-hw', 'r-ops', 'r-labor', 'r-workers', 'r-years', 'f-count']) {
       $(id).addEventListener('input', () => this.updateRoi());
     }
+  }
+
+  private bindKeyboard(): void {
+    document.addEventListener('keydown', (e) => {
+      const target = e.target as HTMLElement | null;
+      if (target && /^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const tool = TOOLS.find((t) => t.key === e.key);
+      if (tool) {
+        this.selectTool(tool.id);
+        return;
+      }
+      if (e.key === ' ') {
+        e.preventDefault();
+        this.togglePlay();
+      } else if (e.key === 'r' || e.key === 'R') {
+        this.startRun();
+      } else if (e.key === 'h' || e.key === 'H') {
+        const box = $<HTMLInputElement>('show-heat');
+        box.checked = !box.checked;
+        box.dispatchEvent(new Event('change'));
+      } else if (e.key === '0') {
+        this.renderer.resetView();
+        this.redraw();
+      }
+    });
+  }
+
+  private togglePlay(): void {
+    if ($<HTMLButtonElement>('play').disabled) return;
+    this.playing = !this.playing;
+    this.syncPlayLabel();
+    pop($('play'));
+  }
+
+  private syncPlayLabel(): void {
+    const btn = $('play');
+    btn.innerHTML = `${icon(this.playing ? 'pause' : 'play', 14)}<span>${
+      this.playing ? 'Pause' : 'Play'
+    }</span>`;
   }
 
   private resizeFloor(): void {
@@ -269,6 +433,7 @@ export class App {
     }
     this.layout.grid = next;
     this.layout.robots = this.layout.robots.filter((r) => r.x < width && r.y < height);
+    this.renderer.resetView();
     this.invalidateRun();
     this.redraw();
   }
@@ -289,6 +454,7 @@ export class App {
     a.download = `${this.layout.name.toLowerCase().replace(/\s+/g, '-')}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    toast('Layout exported.', 'good');
   }
 
   private async importJson(event: Event): Promise<void> {
@@ -298,12 +464,13 @@ export class App {
     try {
       const parsed = deserializeLayout(JSON.parse(await file.text()));
       this.layout = parsed;
+      this.renderer.resetView();
       this.invalidateRun();
       this.syncFloorInputs();
       this.redraw();
-      this.status(`Loaded ${parsed.name}`);
+      toast(`Loaded ${parsed.name}.`, 'good');
     } catch (error) {
-      this.status(error instanceof Error ? error.message : 'Could not read that file');
+      toast(error instanceof Error ? error.message : 'Could not read that file', 'bad', 6000);
     } finally {
       input.value = '';
     }
@@ -318,9 +485,9 @@ export class App {
     img.onload = () => {
       this.backdrop = img;
       this.redraw();
-      this.status('Backdrop loaded — trace the walls and racks over it');
+      toast('Backdrop loaded — trace the walls and racks over it.', 'good', 5000);
     };
-    img.onerror = () => this.status('That image could not be loaded');
+    img.onerror = () => toast('That image could not be loaded.', 'bad');
     img.src = url;
     input.value = '';
   }
@@ -351,7 +518,6 @@ export class App {
     };
   }
 
-  /** top the placed homes up to the requested fleet size using free floor */
   private layoutForRun(count: number): Layout {
     const grid = this.layout.grid;
     const robots = this.layout.robots.slice();
@@ -359,8 +525,7 @@ export class App {
     for (let y = grid.height - 1; y >= 0 && robots.length < count; y--) {
       for (let x = 0; x < grid.width && robots.length < count; x++) {
         const id = y * grid.width + x;
-        if (taken.has(id)) continue;
-        if (grid.cells[id] !== 0) continue;
+        if (taken.has(id) || grid.cells[id] !== 0) continue;
         taken.add(id);
         robots.push({ x, y });
       }
@@ -369,23 +534,24 @@ export class App {
   }
 
   private startRun(): void {
+    if ($<HTMLButtonElement>('run').disabled) return;
     const fleet = this.readFleet();
     const config = this.readConfig();
     const layout = this.layoutForRun(fleet.count);
     if (layout.robots.length < fleet.count) {
-      this.status(`Only ${layout.robots.length} free cells for ${fleet.count} robots`);
+      toast(`Only ${layout.robots.length} free cells — fleet trimmed to fit.`, 'bad', 5000);
     }
     this.requestId++;
     this.setRunning(true);
     this.status('Simulating…');
-    const request: WorkerRequest = {
+    $('progress').hidden = false;
+    this.worker.postMessage({
       type: 'run',
       id: this.requestId,
       layout: serializeLayout(layout),
       fleet,
       config,
-    };
-    this.worker.postMessage(request);
+    } satisfies WorkerRequest);
   }
 
   private startSweep(): void {
@@ -394,66 +560,98 @@ export class App {
       .map((s) => Math.round(Number(s.trim())))
       .filter((n) => Number.isFinite(n) && n > 0);
     if (sizes.length === 0) {
-      setText('sweep-note', 'Enter fleet sizes such as 2, 4, 8, 16');
+      setText('sweep-note', 'Enter fleet sizes such as 2, 4, 8, 16.');
       return;
     }
-    const fleet = this.readFleet();
-    const layout = this.layoutForRun(Math.max(...sizes));
     this.requestId++;
     this.setRunning(true);
-    setText('sweep-note', 'Sweeping…');
-    const request: WorkerRequest = {
+    setText('sweep-note', `Running ${sizes.length} simulations…`);
+    this.worker.postMessage({
       type: 'scan',
       id: this.requestId,
-      layout: serializeLayout(layout),
-      fleet,
+      layout: serializeLayout(this.layoutForRun(Math.max(...sizes))),
+      fleet: this.readFleet(),
       config: this.readConfig(),
       sizes,
-    };
-    this.worker.postMessage(request);
+    } satisfies WorkerRequest);
   }
 
   private onWorkerMessage(msg: WorkerResponse): void {
     if (msg.id !== this.requestId) return;
+
     if (msg.type === 'progress') {
-      this.status(`Simulating… tick ${msg.tick} / ${msg.total}`);
+      const pct = Math.round((msg.tick / Math.max(1, msg.total)) * 100);
+      $<HTMLElement>('progress-bar').style.width = `${pct}%`;
+      this.status(`Simulating… ${pct}%`);
       return;
     }
+
     this.setRunning(false);
+    $('progress').hidden = true;
+
     if (msg.type === 'error') {
       this.status(msg.message);
+      toast(msg.message, 'bad', 6000);
       return;
     }
+
     if (msg.type === 'scan:done') {
       this.curve = msg.curve;
       drawCurve($<HTMLCanvasElement>('curve'), this.curve);
-      setText('sweep-note', `Saturates at ${msg.curve.saturationFleetSize} robots`);
+      setText('sweep-note', `Saturates at ${msg.curve.saturationFleetSize} robots — past that, throughput barely moves.`);
+      toast(`Sweep done. Saturation at ${msg.curve.saturationFleetSize} robots.`, 'good');
       return;
     }
 
     this.run = msg;
     this.frame = 0;
+    this.frameProgress = 0;
+    this.selectedRobot = -1;
+    $('inspector').hidden = true;
+
     const frames = msg.robotCount > 0 ? msg.cells.length / msg.robotCount : 0;
     const scrub = $<HTMLInputElement>('scrub');
     scrub.max = String(Math.max(0, frames - 1));
     scrub.value = '0';
     scrub.disabled = frames <= 1;
     $<HTMLButtonElement>('play').disabled = frames <= 1;
+
     this.showMetrics();
-    this.status(`Done — ${msg.ticks} ticks simulated`);
+    this.status(`${msg.ticks} ticks simulated.`);
     this.updateRoi();
     this.redraw();
+
+    if (frames > 1) {
+      this.playing = true;
+      this.syncPlayLabel();
+    }
   }
 
   private showMetrics(): void {
     const m = this.run?.metrics;
     if (!m) return;
-    setText('m-oph', m.ordersPerHour.toFixed(1));
-    setText('m-util', `${(m.utilization * 100).toFixed(0)}%`);
-    setText('m-lat', `${m.latencyMean.toFixed(0)}t`);
-    setText('m-p95', `${m.latencyP95.toFixed(0)}t`);
-    setText('m-done', String(m.ordersCompleted));
-    setText('m-acc', String(m.ordersAccepted));
+    countTo($('m-oph'), m.ordersPerHour, (v) => v.toFixed(1));
+    countTo($('m-util'), m.utilization * 100, (v) => `${v.toFixed(0)}%`);
+    countTo($('m-lat'), m.latencyMean, (v) => `${v.toFixed(0)}t`);
+    countTo($('m-p95'), m.latencyP95, (v) => `${v.toFixed(0)}t`);
+    countTo($('m-done'), m.ordersCompleted, (v) => v.toFixed(0));
+    countTo($('m-acc'), m.ordersAccepted, (v) => v.toFixed(0));
+
+    const verdict = $('verdict');
+    const backlog = m.ordersAccepted - m.ordersCompleted;
+    const util = m.utilization;
+    let text: string;
+    if (m.ordersAccepted === 0) {
+      text = 'No orders arrived. Add pick and deposit stations, or raise the arrival rate.';
+    } else if (backlog > m.ordersAccepted * 0.25) {
+      text = `The fleet is oversubscribed — ${backlog} orders never got served. Add robots or lower the arrival rate.`;
+    } else if (util < 0.3) {
+      text = `Robots idle ${Math.round((1 - util) * 100)}% of the time. You could run this floor with fewer.`;
+    } else {
+      text = `Demand and fleet are balanced: ${Math.round(util * 100)}% utilisation with the backlog under control.`;
+    }
+    verdict.textContent = text;
+    verdict.hidden = false;
   }
 
   private updateRoi(): void {
@@ -474,31 +672,102 @@ export class App {
     setText('r-roi', Number.isFinite(roi.roiPct) ? `${roi.roiPct.toFixed(0)}%` : '—');
   }
 
-  /* ---------- playback + paint ---------- */
+  /* ---------- playback ---------- */
+
+  private get frameCount(): number {
+    if (!this.run || this.run.robotCount === 0) return 0;
+    return this.run.cells.length / this.run.robotCount;
+  }
+
+  private currentFrameCells(): Int32Array | null {
+    if (!this.run || this.run.robotCount === 0) return null;
+    const n = this.run.robotCount;
+    const offset = this.frame * n;
+    if (offset + n > this.run.cells.length) return null;
+    return this.run.cells.subarray(offset, offset + n);
+  }
 
   private tickPlayback(time: number): void {
-    const elapsed = time - this.lastFrameTime;
-    const interval = 1000 / (FRAMES_PER_SECOND * this.speed);
-    if (this.playing && this.run && elapsed >= interval) {
-      this.lastFrameTime = time;
-      const frames = this.run.robotCount > 0 ? this.run.cells.length / this.run.robotCount : 0;
-      this.frame++;
-      if (this.frame >= frames) {
-        this.frame = Math.max(0, frames - 1);
-        this.playing = false;
-        setText('play', 'Play');
+    const dt = this.lastTime === 0 ? 0 : time - this.lastTime;
+    this.lastTime = time;
+
+    if (this.playing && this.run) {
+      const frames = this.frameCount;
+      const perFrame = 1000 / (BASE_FPS * this.speed);
+      this.frameProgress += dt / perFrame;
+      while (this.frameProgress >= 1) {
+        this.frameProgress -= 1;
+        this.frame++;
+        if (this.frame >= frames - 1) {
+          this.frame = Math.max(0, frames - 1);
+          this.frameProgress = 0;
+          this.playing = false;
+          this.syncPlayLabel();
+          break;
+        }
       }
       $<HTMLInputElement>('scrub').value = String(this.frame);
+      if (this.selectedRobot >= 0) this.updateInspector();
       this.redraw();
     }
     requestAnimationFrame((t) => this.tickPlayback(t));
   }
 
+  private buildRobotFrame(): RobotFrame | null {
+    if (!this.run || this.run.robotCount === 0) return null;
+    const n = this.run.robotCount;
+    const cells = this.currentFrameCells();
+    if (!cells) return null;
+
+    const prevIndex = this.frame - 1;
+    const prev =
+      prevIndex >= 0 ? this.run.cells.subarray(prevIndex * n, prevIndex * n + n) : null;
+
+    const trail: Int32Array[] = [];
+    if (this.showTrails) {
+      for (let d = 1; d <= TRAIL_LENGTH; d++) {
+        const idx = this.frame - d;
+        if (idx < 0) break;
+        trail.push(this.run.cells.subarray(idx * n, idx * n + n));
+      }
+    }
+
+    return {
+      cells,
+      states: this.run.states.subarray(this.frame * n, this.frame * n + n),
+      prev,
+      alpha: this.playing ? Math.min(1, this.frameProgress) : 1,
+      trail,
+    };
+  }
+
+  private updateInspector(): void {
+    const box = $('inspector');
+    if (this.selectedRobot < 0 || !this.run) {
+      box.hidden = true;
+      return;
+    }
+    const n = this.run.robotCount;
+    const offset = this.frame * n + this.selectedRobot;
+    if (offset >= this.run.cells.length) return;
+    const cellId = this.run.cells[offset];
+    const state = STATE_CODES[this.run.states[offset]] ?? 'idle';
+    box.hidden = false;
+    setText('insp-id', String(this.selectedRobot));
+    setText('insp-state', STATE_LABEL[state] ?? state);
+    setText('insp-cell', `${cellId % this.layout.grid.width}, ${Math.floor(cellId / this.layout.grid.width)}`);
+    setText('insp-load', state === 'toDeposit' || state === 'depositing' ? 'yes' : 'no');
+    setText('insp-batt', state === 'charging' ? 'charging' : 'ok');
+  }
+
   private invalidateRun(): void {
     this.run = null;
     this.frame = 0;
+    this.frameProgress = 0;
     this.playing = false;
-    setText('play', 'Play');
+    this.selectedRobot = -1;
+    $('inspector').hidden = true;
+    this.syncPlayLabel();
     $<HTMLButtonElement>('play').disabled = true;
     $<HTMLInputElement>('scrub').disabled = true;
   }
@@ -517,36 +786,24 @@ export class App {
     const { grid } = this.layout;
     this.renderer.resize(grid);
 
-    let robotCells: Int32Array | null = null;
-    let robotStates: Uint8Array | null = null;
-    if (this.run && this.run.robotCount > 0) {
-      const n = this.run.robotCount;
-      const offset = this.frame * n;
-      if (offset + n <= this.run.cells.length) {
-        robotCells = this.run.cells.subarray(offset, offset + n);
-        robotStates = this.run.states.subarray(offset, offset + n);
-      }
-    }
-
     this.renderer.draw({
       grid,
       homes: this.layout.robots.map((r) => r.y * grid.width + r.x),
-      robotCells,
-      robotStates,
+      robots: this.buildRobotFrame(),
       heatmap: this.run?.metrics.heatmap ?? null,
       showHeatmap: this.showHeatmap,
+      showTrails: this.showTrails,
       backdrop: this.backdrop,
       backdropOpacity: this.backdropOpacity,
       hoverCell: this.hoverCell,
+      selectedRobot: this.selectedRobot,
     });
 
     const tick = this.run ? this.frame * this.run.stride : 0;
     setText('tick-read', String(tick).padStart(4, '0'));
     setText(
       'hud-robots',
-      this.run
-        ? `${this.run.robotCount} robots`
-        : `${this.layout.robots.length} homes placed`,
+      this.run ? `${this.run.robotCount} robots` : `${this.layout.robots.length} homes`,
     );
   }
 }

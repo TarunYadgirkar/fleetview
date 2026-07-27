@@ -10,167 +10,338 @@
     />
   </head>
   <body>
-    <div class="app">
-      <header class="topbar">
-        <div class="brand">
-          <span class="brand__mark" aria-hidden="true"></span>
-          <span class="brand__name">FleetView</span>
-          <span class="brand__sub">fleet planner</span>
-        </div>
-        <label class="field field--inline">
-          <span class="field__label">Layout</span>
-          <select id="preset" class="control"></select>
-        </label>
-        <div class="topbar__actions">
-          <button id="import-json" class="btn" type="button">Import JSON</button>
-          <button id="export-json" class="btn" type="button">Export JSON</button>
-          <button id="import-png" class="btn" type="button">Trace a PNG</button>
-        </div>
-        <input id="file-json" type="file" accept="application/json,.json" hidden />
-        <input id="file-png" type="file" accept="image/png,image/jpeg" hidden />
-      </header>
-
-      <div class="body">
-        <nav class="tools" aria-label="Floor plan tools">
-          <p class="tools__title">Draw</p>
-          <div class="tools__grid" id="tool-list" role="radiogroup" aria-label="Cell tool"></div>
-
-          <p class="tools__title">Floor</p>
-          <div class="tools__row">
-            <label class="field">
-              <span class="field__label">Width</span>
-              <input id="grid-w" class="control" type="number" min="4" max="200" value="40" />
-            </label>
-            <label class="field">
-              <span class="field__label">Height</span>
-              <input id="grid-h" class="control" type="number" min="4" max="200" value="24" />
-            </label>
-          </div>
-          <button id="resize" class="btn btn--wide" type="button">Resize floor</button>
-          <button id="clear" class="btn btn--wide" type="button">Clear floor</button>
-
-          <p class="tools__title">Backdrop</p>
-          <label class="field">
-            <span class="field__label">Opacity <output id="backdrop-out">0.5</output></span>
-            <input id="backdrop" class="control" type="range" min="0" max="1" step="0.05" value="0.5" />
-          </label>
-          <button id="backdrop-clear" class="btn btn--wide" type="button">Remove backdrop</button>
-
-          <label class="check">
-            <input id="show-heat" type="checkbox" />
-            <span>Congestion overlay</span>
-          </label>
-        </nav>
-
-        <main class="stage">
-          <canvas id="floor" class="stage__canvas"></canvas>
-          <div class="stage__hud">
-            <span id="hud-cell">—</span>
-            <span id="hud-robots">0 robots</span>
-          </div>
-        </main>
-
-        <aside class="panels" aria-label="Simulation settings and results">
-          <section class="panel">
-            <h2 class="panel__title">Fleet</h2>
-            <div class="grid2">
-              <label class="field"><span class="field__label">Robots</span>
-                <input id="f-count" class="control" type="number" min="0" max="400" value="12" /></label>
-              <label class="field"><span class="field__label">Ticks / cell</span>
-                <input id="f-move" class="control" type="number" min="1" max="20" value="1" /></label>
-              <label class="field"><span class="field__label">Turn cost</span>
-                <input id="f-turn" class="control" type="number" min="0" max="20" value="1" /></label>
-              <label class="field"><span class="field__label">Payload</span>
-                <input id="f-payload" class="control" type="number" min="1" max="20" value="1" /></label>
-              <label class="field"><span class="field__label">Battery</span>
-                <input id="f-battery" class="control" type="number" min="10" max="100000" value="1800" /></label>
-              <label class="field"><span class="field__label">Charge rate</span>
-                <input id="f-charge" class="control" type="number" min="1" max="500" value="20" /></label>
-              <label class="field"><span class="field__label">Charge below</span>
-                <input id="f-thresh" class="control" type="number" min="0" max="0.9" step="0.05" value="0.2" /></label>
+    <div class="app" data-view="intro">
+      <!-- ============================ INTRO ============================ -->
+      <section class="intro" id="intro">
+        <div class="intro__inner">
+          <header class="intro__head">
+            <div class="brand">
+              <span class="brand__mark" aria-hidden="true"></span>
+              <span class="brand__name">FleetView</span>
             </div>
-          </section>
+            <button id="skip-intro" class="btn btn--ghost" type="button">Skip to planner</button>
+          </header>
 
-          <section class="panel">
-            <h2 class="panel__title">Run</h2>
-            <div class="grid2">
-              <label class="field"><span class="field__label">Seed</span>
-                <input id="c-seed" class="control" type="number" min="1" value="1" /></label>
-              <label class="field"><span class="field__label">Ticks</span>
-                <input id="c-ticks" class="control" type="number" min="10" max="200000" value="3000" /></label>
-              <label class="field"><span class="field__label">Arrivals</span>
-                <select id="c-mode" class="control">
-                  <option value="poisson">Poisson</option>
-                  <option value="fixed">Fixed interval</option>
-                </select></label>
-              <label class="field"><span class="field__label">Orders / tick</span>
-                <input id="c-rate" class="control" type="number" min="0.01" max="20" step="0.01" value="0.05" /></label>
-              <label class="field"><span class="field__label">Order cap</span>
-                <input id="c-count" class="control" type="number" min="0" max="100000" value="0" /></label>
-              <label class="field"><span class="field__label">Seconds / tick</span>
-                <input id="c-secs" class="control" type="number" min="0.1" max="60" step="0.1" value="1" /></label>
+          <div class="hero">
+            <p class="eyebrow">Warehouse robotics planning</p>
+            <h1 class="hero__title">
+              Find out how many robots your floor <em>actually</em> needs.
+            </h1>
+            <p class="hero__lead">
+              Draw your warehouse, place a fleet, and watch it run. FleetView simulates every pick,
+              every traffic jam and every charge cycle — then finds the fleet size where adding
+              robots stops paying for itself.
+            </p>
+            <div class="hero__actions">
+              <button id="enter-planner" class="btn btn--primary btn--lg" type="button">
+                Open the planner
+              </button>
+              <button id="intro-preset" class="btn btn--lg" type="button">
+                Start from a real layout
+              </button>
             </div>
-            <button id="run" class="btn btn--primary btn--wide" type="button">Run simulation</button>
-            <p id="run-status" class="status" role="status">Idle</p>
-          </section>
-
-          <section class="panel">
-            <h2 class="panel__title">Results</h2>
-            <dl class="metrics" id="metrics">
-              <div class="metric"><dt>Orders / hour</dt><dd id="m-oph">—</dd></div>
-              <div class="metric"><dt>Utilisation</dt><dd id="m-util">—</dd></div>
-              <div class="metric"><dt>Latency mean</dt><dd id="m-lat">—</dd></div>
-              <div class="metric"><dt>Latency p95</dt><dd id="m-p95">—</dd></div>
-              <div class="metric"><dt>Completed</dt><dd id="m-done">—</dd></div>
-              <div class="metric"><dt>Accepted</dt><dd id="m-acc">—</dd></div>
+            <dl class="hero__stats">
+              <div><dt>Runs in</dt><dd>your browser</dd></div>
+              <div><dt>Backend</dt><dd>none</dd></div>
+              <div><dt>Same seed</dt><dd>same result</dd></div>
             </dl>
-          </section>
+          </div>
 
-          <section class="panel">
-            <h2 class="panel__title">Fleet size sweep</h2>
-            <label class="field"><span class="field__label">Sizes to test</span>
-              <input id="sweep-sizes" class="control" type="text" value="2, 4, 8, 12, 16, 24" /></label>
-            <button id="sweep" class="btn btn--wide" type="button">Run sweep</button>
-            <canvas id="curve" class="curve" width="320" height="160"></canvas>
-            <p id="sweep-note" class="status">Saturation point appears here.</p>
-          </section>
-
-          <section class="panel">
-            <h2 class="panel__title">Payback</h2>
-            <div class="grid2">
-              <label class="field"><span class="field__label">Cost / robot</span>
-                <input id="r-hw" class="control" type="number" min="0" value="45000" /></label>
-              <label class="field"><span class="field__label">Ops / robot / yr</span>
-                <input id="r-ops" class="control" type="number" min="0" value="3500" /></label>
-              <label class="field"><span class="field__label">Worker cost / yr</span>
-                <input id="r-labor" class="control" type="number" min="0" value="52000" /></label>
-              <label class="field"><span class="field__label">Workers displaced</span>
-                <input id="r-workers" class="control" type="number" min="0" step="0.5" value="6" /></label>
-              <label class="field"><span class="field__label">Horizon (yrs)</span>
-                <input id="r-years" class="control" type="number" min="1" max="20" value="5" /></label>
+          <!-- signature: the reason the solver exists, running live -->
+          <div class="thesis">
+            <div class="thesis__copy">
+              <p class="eyebrow">The hard part</p>
+              <h2 class="thesis__title">Robots share aisles. That is the whole problem.</h2>
+              <p>
+                Route each robot on its own and two of them will eventually want the same cell at
+                the same tick. In a single-width aisle they meet nose to nose and neither can move
+                again — the floor quietly stops working.
+              </p>
+              <p>
+                FleetView plans the fleet together using <strong>Conflict-Based Search</strong>. It
+                finds the conflict, branches on it, and re-plans the cheapest way around — here, by
+                parking one robot in the passing bay. Both panels below are the real solver running
+                on the same corridor.
+              </p>
+              <p class="thesis__note" id="thesis-cost">Solving…</p>
             </div>
-            <dl class="metrics">
-              <div class="metric"><dt>Capex</dt><dd id="r-capex">—</dd></div>
-              <div class="metric"><dt>Net saving / yr</dt><dd id="r-net">—</dd></div>
-              <div class="metric"><dt>Payback</dt><dd id="r-payback">—</dd></div>
-              <div class="metric"><dt>ROI at horizon</dt><dd id="r-roi">—</dd></div>
-            </dl>
-          </section>
-        </aside>
+            <div class="thesis__demos">
+              <figure class="demo demo--bad">
+                <figcaption>
+                  <span class="demo__label">Route each robot alone</span>
+                  <span class="tag tag--bad">Deadlock</span>
+                </figcaption>
+                <canvas id="demo-naive" class="demo__canvas"></canvas>
+                <p class="demo__caption">Both advance, both block, nothing moves again.</p>
+              </figure>
+              <figure class="demo demo--good">
+                <figcaption>
+                  <span class="demo__label">Conflict-Based Search</span>
+                  <span class="tag tag--good">Optimal</span>
+                </figcaption>
+                <canvas id="demo-cbs" class="demo__canvas"></canvas>
+                <p class="demo__caption">One waits in the bay. Both arrive, at the lowest cost.</p>
+              </figure>
+            </div>
+          </div>
+
+          <ol class="steps">
+            <li class="step">
+              <span class="step__num">1</span>
+              <h3>Draw the floor</h3>
+              <p>
+                Paint walls, racks, pick stations, deposit lanes and charge docks on a snapped
+                grid. Import a PNG of a real plan and trace over it, or start from one of three
+                built-in layouts.
+              </p>
+            </li>
+            <li class="step">
+              <span class="step__num">2</span>
+              <h3>Run the fleet</h3>
+              <p>
+                Set robot speed, turn cost, payload and battery. Orders arrive on a seeded random
+                process. The simulation runs on a background thread, so a ten-thousand-tick day
+                takes a couple of seconds.
+              </p>
+            </li>
+            <li class="step">
+              <span class="step__num">3</span>
+              <h3>Read the payback</h3>
+              <p>
+                Get throughput, utilisation, order latency and a congestion heatmap. Sweep fleet
+                sizes to find the saturation point, then put hardware and labour costs against it.
+              </p>
+            </li>
+          </ol>
+
+          <div class="glossary">
+            <p class="eyebrow">What the numbers mean</p>
+            <div class="glossary__grid">
+              <div class="gloss">
+                <h4>Orders / hour</h4>
+                <p>Completed orders scaled to an hour. The headline throughput number.</p>
+              </div>
+              <div class="gloss">
+                <h4>Utilisation</h4>
+                <p>
+                  Share of time robots spend on real work. Low means too many robots; near 100%
+                  means no slack for demand spikes.
+                </p>
+              </div>
+              <div class="gloss">
+                <h4>Latency p95</h4>
+                <p>
+                  95% of orders finish faster than this. The mean hides the bad tail — this is the
+                  number a customer promise rests on.
+                </p>
+              </div>
+              <div class="gloss">
+                <h4>Saturation point</h4>
+                <p>
+                  The smallest fleet still within 95% of peak throughput. Past it, robots mostly
+                  queue behind each other.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="intro__foot">
+            <button id="enter-planner-2" class="btn btn--primary btn--lg" type="button">
+              Open the planner
+            </button>
+          </footer>
+        </div>
+      </section>
+
+      <!-- ============================ PLANNER ============================ -->
+      <div class="planner">
+        <header class="topbar">
+          <div class="brand">
+            <span class="brand__mark" aria-hidden="true"></span>
+            <span class="brand__name">FleetView</span>
+          </div>
+          <label class="field field--inline">
+            <span class="field__label">Layout</span>
+            <select id="preset" class="control"></select>
+          </label>
+          <div class="topbar__actions">
+            <button id="import-json" class="btn" type="button">Import</button>
+            <button id="export-json" class="btn" type="button">Export</button>
+            <button id="import-png" class="btn" type="button">Trace PNG</button>
+            <button id="show-intro" class="btn btn--icon" type="button" title="What is this?"
+                    aria-label="What is this?"></button>
+          </div>
+          <input id="file-json" type="file" accept="application/json,.json" hidden />
+          <input id="file-png" type="file" accept="image/png,image/jpeg" hidden />
+        </header>
+
+        <div class="body">
+          <nav class="tools" aria-label="Floor plan tools">
+            <p class="tools__title">Draw</p>
+            <div class="tools__grid" id="tool-list" role="radiogroup" aria-label="Cell tool"></div>
+
+            <p class="tools__title">Floor</p>
+            <div class="tools__row">
+              <label class="field">
+                <span class="field__label">Width</span>
+                <input id="grid-w" class="control" type="number" min="4" max="200" value="40" />
+              </label>
+              <label class="field">
+                <span class="field__label">Height</span>
+                <input id="grid-h" class="control" type="number" min="4" max="200" value="24" />
+              </label>
+            </div>
+            <button id="resize" class="btn btn--wide" type="button">Resize floor</button>
+            <button id="clear" class="btn btn--wide" type="button">Clear floor</button>
+
+            <p class="tools__title">Overlays</p>
+            <label class="check">
+              <input id="show-heat" type="checkbox" />
+              <span>Congestion heatmap</span>
+            </label>
+            <label class="check">
+              <input id="show-trails" type="checkbox" checked />
+              <span>Motion trails</span>
+            </label>
+
+            <p class="tools__title">Traced plan</p>
+            <label class="field">
+              <span class="field__label">Opacity <output id="backdrop-out">0.5</output></span>
+              <input id="backdrop" class="control" type="range" min="0" max="1" step="0.05" value="0.5" />
+            </label>
+            <button id="backdrop-clear" class="btn btn--wide" type="button">Remove backdrop</button>
+          </nav>
+
+          <main class="stage">
+            <canvas id="floor" class="stage__canvas"></canvas>
+            <div class="stage__legend" id="legend"></div>
+            <div class="stage__hud">
+              <span id="hud-cell">—</span>
+              <span class="hud__sep"></span>
+              <span id="hud-robots">0 robots</span>
+            </div>
+            <div class="inspector" id="inspector" hidden>
+              <button class="inspector__close" id="inspector-close" type="button" aria-label="Close">×</button>
+              <p class="eyebrow">Robot <span id="insp-id">0</span></p>
+              <dl>
+                <div><dt>State</dt><dd id="insp-state">—</dd></div>
+                <div><dt>Cell</dt><dd id="insp-cell">—</dd></div>
+                <div><dt>Carrying</dt><dd id="insp-load">—</dd></div>
+                <div><dt>Battery</dt><dd id="insp-batt">—</dd></div>
+              </dl>
+            </div>
+          </main>
+
+          <aside class="panels" aria-label="Simulation settings and results">
+            <section class="panel">
+              <h2 class="panel__title" data-icon="truck">Fleet</h2>
+              <div class="grid2">
+                <label class="field"><span class="field__label">Robots</span>
+                  <input id="f-count" class="control" type="number" min="0" max="400" value="12" /></label>
+                <label class="field"><span class="field__label">Ticks / cell</span>
+                  <input id="f-move" class="control" type="number" min="1" max="20" value="1" /></label>
+                <label class="field"><span class="field__label">Turn cost</span>
+                  <input id="f-turn" class="control" type="number" min="0" max="20" value="1" /></label>
+                <label class="field"><span class="field__label">Payload</span>
+                  <input id="f-payload" class="control" type="number" min="1" max="20" value="1" /></label>
+                <label class="field"><span class="field__label">Battery</span>
+                  <input id="f-battery" class="control" type="number" min="10" max="100000" value="1800" /></label>
+                <label class="field"><span class="field__label">Charge rate</span>
+                  <input id="f-charge" class="control" type="number" min="1" max="500" value="20" /></label>
+                <label class="field"><span class="field__label">Charge below</span>
+                  <input id="f-thresh" class="control" type="number" min="0" max="0.9" step="0.05" value="0.2" /></label>
+              </div>
+            </section>
+
+            <section class="panel">
+              <h2 class="panel__title" data-icon="cpu">Run</h2>
+              <div class="grid2">
+                <label class="field"><span class="field__label">Seed</span>
+                  <input id="c-seed" class="control" type="number" min="1" value="1" /></label>
+                <label class="field"><span class="field__label">Ticks</span>
+                  <input id="c-ticks" class="control" type="number" min="10" max="200000" value="3000" /></label>
+                <label class="field"><span class="field__label">Arrivals</span>
+                  <select id="c-mode" class="control">
+                    <option value="poisson">Poisson</option>
+                    <option value="fixed">Fixed interval</option>
+                  </select></label>
+                <label class="field"><span class="field__label">Orders / tick</span>
+                  <input id="c-rate" class="control" type="number" min="0.01" max="20" step="0.01" value="0.07" /></label>
+                <label class="field"><span class="field__label">Order cap</span>
+                  <input id="c-count" class="control" type="number" min="0" max="100000" value="0" /></label>
+                <label class="field"><span class="field__label">Seconds / tick</span>
+                  <input id="c-secs" class="control" type="number" min="0.1" max="60" step="0.1" value="1" /></label>
+              </div>
+              <button id="run" class="btn btn--primary btn--wide" type="button">Run simulation</button>
+              <div class="progress" id="progress" hidden><div class="progress__bar" id="progress-bar"></div></div>
+              <p id="run-status" class="status" role="status">Ready when you are.</p>
+            </section>
+
+            <section class="panel">
+              <h2 class="panel__title" data-icon="gauge">Results</h2>
+              <dl class="metrics" id="metrics">
+                <div class="metric" title="Completed orders scaled to one hour.">
+                  <dt>Orders / hour</dt><dd id="m-oph">—</dd></div>
+                <div class="metric" title="Share of ticks robots spend on productive work.">
+                  <dt>Utilisation</dt><dd id="m-util">—</dd></div>
+                <div class="metric" title="Average ticks from order arrival to deposit.">
+                  <dt>Latency mean</dt><dd id="m-lat">—</dd></div>
+                <div class="metric" title="95% of orders complete faster than this.">
+                  <dt>Latency p95</dt><dd id="m-p95">—</dd></div>
+                <div class="metric" title="Orders finished during the run.">
+                  <dt>Completed</dt><dd id="m-done">—</dd></div>
+                <div class="metric" title="Orders that arrived during the run.">
+                  <dt>Accepted</dt><dd id="m-acc">—</dd></div>
+              </dl>
+              <p class="verdict" id="verdict" hidden></p>
+            </section>
+
+            <section class="panel">
+              <h2 class="panel__title" data-icon="trending">Fleet size sweep</h2>
+              <label class="field"><span class="field__label">Sizes to test</span>
+                <input id="sweep-sizes" class="control" type="text" value="2, 4, 8, 12, 16, 24" /></label>
+              <button id="sweep" class="btn btn--wide" type="button">Run sweep</button>
+              <canvas id="curve" class="curve" width="320" height="170"></canvas>
+              <p id="sweep-note" class="status">Find where extra robots stop paying.</p>
+            </section>
+
+            <section class="panel">
+              <h2 class="panel__title" data-icon="wallet">Payback</h2>
+              <div class="grid2">
+                <label class="field"><span class="field__label">Cost / robot</span>
+                  <input id="r-hw" class="control" type="number" min="0" value="45000" /></label>
+                <label class="field"><span class="field__label">Ops / robot / yr</span>
+                  <input id="r-ops" class="control" type="number" min="0" value="3500" /></label>
+                <label class="field"><span class="field__label">Worker cost / yr</span>
+                  <input id="r-labor" class="control" type="number" min="0" value="52000" /></label>
+                <label class="field"><span class="field__label">Workers displaced</span>
+                  <input id="r-workers" class="control" type="number" min="0" step="0.5" value="6" /></label>
+                <label class="field"><span class="field__label">Horizon (yrs)</span>
+                  <input id="r-years" class="control" type="number" min="1" max="20" value="5" /></label>
+              </div>
+              <dl class="metrics">
+                <div class="metric"><dt>Capex</dt><dd id="r-capex">—</dd></div>
+                <div class="metric"><dt>Net saving / yr</dt><dd id="r-net">—</dd></div>
+                <div class="metric"><dt>Payback</dt><dd id="r-payback">—</dd></div>
+                <div class="metric"><dt>ROI at horizon</dt><dd id="r-roi">—</dd></div>
+              </dl>
+            </section>
+          </aside>
+        </div>
+
+        <footer class="transport">
+          <button id="play" class="btn btn--play" type="button" disabled>Play</button>
+          <div class="rule">
+            <input id="scrub" class="rule__input" type="range" min="0" max="0" value="0" disabled
+                   aria-label="Playback position" />
+            <div class="rule__ticks" id="rule-ticks" aria-hidden="true"></div>
+          </div>
+          <div class="transport__meta">
+            <span id="tick-read" class="tick-read">0000</span>
+            <div class="speeds" id="speeds" role="radiogroup" aria-label="Playback speed"></div>
+          </div>
+        </footer>
       </div>
-
-      <footer class="transport">
-        <button id="play" class="btn btn--play" type="button" disabled>Play</button>
-        <div class="rule">
-          <input id="scrub" class="rule__input" type="range" min="0" max="0" value="0" disabled
-                 aria-label="Playback position" />
-          <div class="rule__ticks" id="rule-ticks" aria-hidden="true"></div>
-        </div>
-        <div class="transport__meta">
-          <span id="tick-read" class="tick-read">0000</span>
-          <div class="speeds" id="speeds" role="radiogroup" aria-label="Playback speed"></div>
-        </div>
-      </footer>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
