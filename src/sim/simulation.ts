@@ -13,7 +13,9 @@ import type {
   SimMetrics,
   SimResult,
   SimSnapshot,
+  TimelinePoint,
 } from './types';
+import { TIMELINE_SAMPLES } from './types';
 
 /** playback frame encoding: state index in this array is what writeFrame emits */
 export const STATE_CODES: readonly RobotState[] = [
@@ -106,6 +108,8 @@ export class Simulation {
   private itemsDeposited = 0;
   private latencies: number[] = [];
   private violations: string[] = [];
+  private timeline: TimelinePoint[] = [];
+  private readonly sampleEvery: number;
 
   constructor(
     public readonly grid: Grid,
@@ -114,6 +118,7 @@ export class Simulation {
     public readonly starts: Cell[],
   ) {
     this.rng = new Rng(config.seed);
+    this.sampleEvery = Math.max(1, Math.ceil(config.maxTicks / TIMELINE_SAMPLES));
     this.fields = new DistanceFieldCache(grid);
     this.heat = new Float64Array(grid.width * grid.height);
     this.occupant = new Int32Array(grid.width * grid.height).fill(-1);
@@ -189,6 +194,18 @@ export class Simulation {
 
     this.tickCount++;
     this.violations = this.detectViolations();
+    if (this.tickCount % this.sampleEvery === 0) this.sampleTimeline();
+  }
+
+  private sampleTimeline(): void {
+    let busy = 0;
+    for (const r of this.robots) if (WORKING_STATES.has(r.state)) busy++;
+    this.timeline.push({
+      tick: this.tickCount,
+      completed: this.completed,
+      busy,
+      pending: this.pendingCount,
+    });
   }
 
   checkInvariants(): string[] {
@@ -544,6 +561,21 @@ export class Simulation {
     const ticks = this.tickCount;
     const robotUtil = this.robots.map((r) => (ticks > 0 ? r.activeTicks / ticks : 0));
     const inTransit = this.robots.reduce((s, r) => s + r.carrying, 0);
+
+    // a run rarely ends exactly on a sample boundary; close the series on the real final tick
+    const timeline = this.timeline.slice();
+    const last = timeline[timeline.length - 1];
+    if (!last || last.tick !== ticks) {
+      let busy = 0;
+      for (const r of this.robots) if (WORKING_STATES.has(r.state)) busy++;
+      timeline.push({
+        tick: ticks,
+        completed: this.completed,
+        busy,
+        pending: this.pendingCount,
+      });
+    }
+
     return {
       ticks,
       ordersAccepted: this.orderSource.totalGenerated,
@@ -557,6 +589,7 @@ export class Simulation {
       itemsPicked: this.itemsPicked,
       itemsDeposited: this.itemsDeposited,
       itemsInTransit: inTransit,
+      timeline,
     };
   }
 

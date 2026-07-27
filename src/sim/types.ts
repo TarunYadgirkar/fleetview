@@ -60,6 +60,19 @@ export interface SimSnapshot {
   completedOrders: number;
 }
 
+export interface TimelinePoint {
+  tick: number;
+  /** cumulative completed orders at this tick */
+  completed: number;
+  /** robots doing productive work at this tick */
+  busy: number;
+  /** orders waiting for a robot */
+  pending: number;
+}
+
+/** target number of samples in a run timeline, regardless of run length */
+export const TIMELINE_SAMPLES = 240;
+
 export interface SimMetrics {
   ticks: number;
   ordersAccepted: number;
@@ -76,6 +89,8 @@ export interface SimMetrics {
   itemsPicked: number;
   itemsDeposited: number;
   itemsInTransit: number;
+  /** sampled run history, for the throughput-over-time chart */
+  timeline: TimelinePoint[];
 }
 
 export interface SimResult {

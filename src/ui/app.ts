@@ -7,7 +7,7 @@ import type { ThroughputCurve } from '../sim/scan';
 import { STATE_CODES } from '../sim/simulation';
 import { defaultSimConfig, type FleetSpec, type SimConfig } from '../sim/types';
 import type { RunPayload, WorkerRequest, WorkerResponse } from '../worker/protocol';
-import { drawCurve } from './charts';
+import { drawCurve, drawTimeline } from './charts';
 import { $, formatMoney, num, setText } from './dom';
 import { type IconName, icon } from './icons';
 import { Intro } from './intro';
@@ -636,6 +636,7 @@ export class App {
     countTo($('m-p95'), m.latencyP95, (v) => `${v.toFixed(0)}t`);
     countTo($('m-done'), m.ordersCompleted, (v) => v.toFixed(0));
     countTo($('m-acc'), m.ordersAccepted, (v) => v.toFixed(0));
+    drawTimeline($<HTMLCanvasElement>('timeline'), m.timeline, this.run?.robotCount ?? 0);
 
     const verdict = $('verdict');
     const backlog = m.ordersAccepted - m.ordersCompleted;
