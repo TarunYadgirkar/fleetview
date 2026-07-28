@@ -68,8 +68,11 @@ saturation and late queue growth show up. A plain-English verdict states the con
 oversubscribed, over-provisioned, or balanced.
 
 **Inspect what happened.** Click any robot during playback to see its state, cell and load.
-Scroll to zoom, drag with the middle or right mouse button to pan, `0` resets the view.
-Keyboard: `1`–`7` pick a draw tool, `space` plays/pauses, `r` runs, `h` toggles the heatmap.
+
+Navigating the floor: **pinch, or ctrl/⌘ + scroll, to zoom** — or use the `− 100% +` control in
+the corner of the canvas. Drag with the middle or right mouse button to pan; once zoomed in,
+plain scrolling pans too. `0` resets the view. Keyboard: `1`–`7` pick a draw tool, `space`
+plays/pauses, `r` runs, `h` toggles the heatmap.
 
 **Find the right fleet size.** The sweep runs one simulation per fleet size and plots
 throughput against fleet size, marking the saturation knee — the smallest fleet that still

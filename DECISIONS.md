@@ -131,6 +131,21 @@ A "verdict" line reads the metrics and states the conclusion (oversubscribed / o
 hid warm-up, saturation and late queue growth, and readers who do not already know what p95
 means got nothing actionable from six figures in a grid.
 
+## D21 — Wheel handling: pinch zooms, scroll pans, buttons for everything else
+The first zoom implementation multiplied zoom by a fixed 1.12 on every `wheel` event. A trackpad
+emits dozens of events per gesture (plus momentum after your fingers lift), so a single flick
+pinned zoom at the 6× cap — reported as "goes crazy and isn't controllable". Rewritten to the
+convention canvas tools share:
+- **ctrl/⌘ + wheel** (which is what browsers deliver for a trackpad pinch) zooms, scaled by the
+  actual delta via `exp()` and clamped to ±40px so one violent gesture cannot leap several levels.
+- **Plain wheel** pans, and only when zoomed in; at fit-to-view it is left alone so the page can
+  still scroll. `preventDefault` is called only when the event is actually consumed.
+- `deltaMode` is normalised (Firefox reports lines, not pixels).
+
+Sniffing mouse-vs-trackpad from delta shape was rejected as unreliable. Since plain wheel no
+longer zooms, an explicit `− 100% +` control sits on the canvas so mouse users (and anyone who
+does not know the pinch convention) have a discoverable path. It doubles as a zoom readout.
+
 ## D11 — Order distribution: Poisson arrivals (seeded) with fixed-interval option
 Poisson is the realistic default for order arrivals; a fixed-interval mode makes some tests
 trivially deterministic to reason about. Both flow through the one seeded PRNG.

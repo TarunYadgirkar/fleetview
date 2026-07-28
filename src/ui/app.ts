@@ -263,21 +263,45 @@ export class App {
       this.redraw();
     });
 
-    canvas.addEventListener(
-      'wheel',
-      (e) => {
-        e.preventDefault();
-        const rect = canvas.getBoundingClientRect();
-        const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-        this.renderer.setZoom(
-          this.renderer.zoomLevel * factor,
-          e.clientX - rect.left,
-          e.clientY - rect.top,
-        );
-        this.redraw();
-      },
-      { passive: false },
-    );
+    canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
+  }
+
+  /**
+   * Trackpads fire a stream of wheel events with wildly varying deltas, so a fixed zoom step
+   * per event runs away instantly. Follow the convention every canvas tool uses: pinch (which
+   * browsers deliver as ctrl+wheel) zooms, plain scroll pans, and the step scales with the
+   * actual delta. When the floor already fits, plain scroll is left alone so the page can scroll.
+   */
+  private onWheel(e: WheelEvent): void {
+    const rect = this.canvas.getBoundingClientRect();
+    // deltaMode: 0 = pixels, 1 = lines, 2 = pages
+    const scale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? rect.height : 1;
+    const dx = e.deltaX * scale;
+    const dy = e.deltaY * scale;
+
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      // clamp so one violent gesture cannot jump several zoom levels
+      const step = Math.max(-40, Math.min(40, dy));
+      this.renderer.setZoom(
+        this.renderer.zoomLevel * Math.exp(-step * 0.01),
+        e.clientX - rect.left,
+        e.clientY - rect.top,
+      );
+      this.redraw();
+      return;
+    }
+
+    if (this.renderer.zoomLevel <= 1.001) return; // nothing to pan — let the page scroll
+    e.preventDefault();
+    this.renderer.panBy(-dx, -dy);
+    this.redraw();
+  }
+
+  private zoomFromCentre(factor: number): void {
+    const rect = this.canvas.getBoundingClientRect();
+    this.renderer.setZoom(this.renderer.zoomLevel * factor, rect.width / 2, rect.height / 2);
+    this.redraw();
   }
 
   private cellFromEvent(e: PointerEvent): Cell | null {
@@ -360,6 +384,13 @@ export class App {
     $('run').addEventListener('click', () => this.startRun());
     $('sweep').addEventListener('click', () => this.startSweep());
     $('play').addEventListener('click', () => this.togglePlay());
+    $('zoom-in').addEventListener('click', () => this.zoomFromCentre(1.25));
+    $('zoom-out').addEventListener('click', () => this.zoomFromCentre(1 / 1.25));
+    $('zoom-reset').addEventListener('click', () => {
+      this.renderer.resetView();
+      this.redraw();
+    });
+
     $('inspector-close').addEventListener('click', () => {
       this.selectedRobot = -1;
       $('inspector').hidden = true;
@@ -806,5 +837,6 @@ export class App {
       'hud-robots',
       this.run ? `${this.run.robotCount} robots` : `${this.layout.robots.length} homes`,
     );
+    setText('zoom-reset', `${Math.round(this.renderer.zoomLevel * 100)}%`);
   }
 }

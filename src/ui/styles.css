@@ -667,6 +667,36 @@ select:focus-visible {
   background: var(--line);
 }
 
+.zoomer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.zoomer__btn,
+.zoomer__level {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  padding: 0.05rem 0.3rem;
+  cursor: pointer;
+  line-height: 1.3;
+}
+
+.zoomer__level {
+  min-width: 3.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.zoomer__btn:hover,
+.zoomer__level:hover {
+  color: var(--paint);
+  border-color: var(--line);
+}
+
 .stage__legend {
   left: 0.75rem;
   top: 0.75rem;
