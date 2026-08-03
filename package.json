@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "description": "Browser-based warehouse robot fleet planner: floor plan in, throughput and ROI out.",
   "scripts": {
     "dev": "vite",

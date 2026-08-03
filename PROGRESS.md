@@ -1,6 +1,6 @@
 # Progress
 
-Updated every ~30 min of work. Newest first.
+Newest first.
 
 ## Log
 
@@ -30,9 +30,8 @@ Updated every ~30 min of work. Newest first.
   saturation knee misreported at 4 robots on a curve still climbing to 16.
 - Two tests corrected as genuinely wrong, both made *stronger*, logged in DECISIONS D12/D14.
 - **Next**: see HANDOFF.md — windowed CBS in the live loop, better task assignment, PNG auto-trace.
-- **Blocked**: nothing.
 
-### T2 — MAPF core + ROI GREEN (checkpoint: user restarting machine)
+### T2 — MAPF core + ROI GREEN
 - **CBS optimal core GREEN**: all 25 MAPF tests pass — optimal SOC on all 8 fixtures, valid
   conflict-free solutions, determinism, prioritized fallback, CBS-necessity proven (prioritized
   fails F3 swap, CBS solves it).

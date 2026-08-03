@@ -1,15 +1,15 @@
 # Handoff
 
-**Live:** https://fleetview-taruns-projects-248def65.vercel.app
+**Live:** https://fleetview-kappa.vercel.app
 **Repo:** https://github.com/TarunYadgirkar/fleetview
 
 ```bash
 npm install && npm test && npm run dev
 ```
 
-65 tests green. Build is clean under `tsc --noEmit` with strict mode. Bundle is 19.3 kB gzipped
-JS + 3.8 kB CSS + three self-hosted latin font files. Everything is bundled — no CDN, no network
-calls at runtime, works offline from `dist/`.
+65 tests green. Build is clean under `tsc --noEmit` with strict mode. Bundle is 19.4 kB gzipped
+JS + 3.9 kB CSS + three self-hosted latin font files. Everything is bundled — no CDN, no network
+calls at runtime; `dist/` works offline once served over http.
 
 ## What works
 
@@ -57,7 +57,7 @@ trails, rack depth shading, floor legend, click-to-inspect robots, wheel zoom an
 toasts, progress bar, keyboard shortcuts, a run-timeline chart, and a plain-English verdict on
 every result.
 
-## What is stubbed or deliberately limited
+## Deliberate limitations
 
 Nothing is stubbed behind a fake interface — every module listed in `SPEC.md` is implemented.
 The real limitations:

@@ -629,6 +629,7 @@ select:focus-visible {
 .stage {
   position: relative;
   min-width: 0;
+  min-height: 0;
   background: var(--shell);
 }
 

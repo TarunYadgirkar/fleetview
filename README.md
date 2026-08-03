@@ -3,45 +3,29 @@
 Browser-based warehouse robot fleet planner. Draw a floor plan, place a robot fleet, and get
 throughput, congestion and payback analysis. Single-page app, no backend, ships as static files.
 
-The technical core is a proper **Conflict-Based Search** MAPF solver (optimal sum-of-costs, with
-prioritized planning as a budgeted fallback) driving a deterministic discrete-event simulation
-that runs in a Web Worker.
+**[Live demo →](https://fleetview-kappa.vercel.app)** — no install, runs entirely in the browser.
 
-## Setup
+Route each robot on its own and two of them eventually want the same cell on the same tick. In a
+single-width aisle they meet nose to nose and neither moves again — the floor quietly stops
+working. FleetView plans the fleet together with **Conflict-Based Search**: it finds the conflict,
+branches on it, and re-plans the cheapest way around. The landing page demonstrates that rather
+than asserting it — it calls `cbs()` live and races it against naive per-robot routing on the same
+corridor, side by side. CBS drives a deterministic discrete-event simulation that runs in a Web
+Worker.
 
-```bash
-npm install
-```
+## What holds up
 
-## Usage
-
-```bash
-npm run dev
-```
-
-Open http://localhost:5173.
-
-Other commands:
-
-```bash
-npm test
-```
-
-```bash
-npm run build
-```
-
-`npm run build` typechecks and emits a fully static `dist/` — open `dist/index.html` from disk or
-host it anywhere. There is no server component and no external network dependency at runtime
-(system fonts only, so it works offline).
-
-## The explainer
-
-First visit opens a "what is this" page. Its centrepiece runs the **real solver live**: the same
-corridor-swap instance planned two ways, side by side — per-robot routing (deadlocks) against
-Conflict-Based Search (solves it at the provably cheapest cost). It is the product's argument,
-demonstrated rather than asserted, and it re-renders from the actual `cbs()` implementation, so
-it cannot drift away from the code. Reopen it any time with the **?** button in the planner.
+- **65 tests pass**, whole suite in about a second: MAPF optimality, per-tick invariants,
+  determinism, degenerate layouts, performance.
+- **CBS matches the known-optimal sum-of-costs on 8 hand-verified MAPF instances** — corridor
+  swap, bottleneck door, cyclic rotation, adjacent swap, open-room cross, follow, parallel lanes,
+  straight line.
+- **The prioritized fallback is a real downgrade, and a test proves it**: prioritized planning
+  *fails* the single-alcove corridor swap that CBS solves.
+- **50 robots on a 100×100 grid for 10,000 ticks** finishes in roughly half a second here, against
+  a 10 s budget asserted in the suite.
+- **19.4 kB gzipped JS + 3.9 kB gzipped CSS.** Self-hosted fonts, no CDN, no network calls at
+  runtime.
 
 ## What you can do
 
@@ -69,6 +53,11 @@ oversubscribed, over-provisioned, or balanced.
 
 **Inspect what happened.** Click any robot during playback to see its state, cell and load.
 
+**Read the explainer.** First visit opens a "what is this" page, whose centrepiece is the live
+CBS-vs-naive corridor described above. Because it re-renders from the actual `cbs()`
+implementation it cannot drift away from the code. Reopen it any time with the **?** button in the
+planner.
+
 Navigating the floor: **pinch, or ctrl/⌘ + scroll, to zoom** — or use the `− 100% +` control in
 the corner of the canvas. Drag with the middle or right mouse button to pan; once zoomed in,
 plain scrolling pans too. `0` resets the view. Keyboard: `1`–`7` pick a draw tool, `space`
@@ -85,6 +74,33 @@ cost and headcount, and returns capex, annual net saving, payback period and ROI
 
 Three presets ship with the app: a goods-to-person **Fulfillment Centre**, an open
 **Cross-Dock Sortation** floor, and a bottleneck-heavy **Dense Cold Storage** layout.
+
+## Setup
+
+Node 18 or newer.
+
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:5173.
+
+Other commands:
+
+```bash
+npm test
+```
+
+```bash
+npm run build
+```
+
+`npm run build` typechecks and emits a fully static `dist/` — serve it from anywhere, e.g.
+`npx serve dist` or `python3 -m http.server -d dist`. (A module entry script and a module Worker
+both need an http origin, so `dist/index.html` opened straight off disk will not boot.) There is
+no server component and no external network dependency at runtime — fonts and icons are bundled,
+so it works offline once served.
 
 ## Determinism
 
@@ -146,7 +162,8 @@ npm test
 - **Determinism** — same seed and layout produce identical metrics and identical per-tick
   snapshots.
 - **Degenerate layouts** — single corridor, fully blocked, zero robots, 200 robots.
-- **Performance** — 50 robots on a 100×100 grid, 10,000 ticks in under 10 s (currently ~2 s).
+- **Performance** — 50 robots on a 100×100 grid, 10,000 ticks in under 10 s (about 0.5 s on a
+  current laptop).
 - Presets, layout validation, ROI, playback frame capture, and the run timeline (bounded
   sample count, monotonic completions, closes on the true final tick).
 
@@ -156,4 +173,4 @@ npm test
 - `DECISIONS.md` — every autonomous judgement call and why
 - `DEPENDENCIES.md` — what was pulled in and why
 - `PROGRESS.md` — running work log
-- `HANDOFF.md` — what works, what is stubbed, what to do next
+- `HANDOFF.md` — what works, deliberate limitations, what to do next

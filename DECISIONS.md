@@ -14,8 +14,8 @@ the landing bundle within the perf budget and keeps the render loop explicit. DO
 plain elements.
 
 ## D3 — npm, not pnpm
-pnpm not installed on this machine (`no pnpm`). Global pref is pnpm-when-available; it isn't.
-Using npm. Lockfile: package-lock.json.
+npm, because it is the tool guaranteed to be present wherever Node is. Lockfile:
+package-lock.json.
 
 ## D4 — CBS graded on unit-cost 4-connected grid; turn cost lives in the sim
 The spec asks CBS to find "optimal cost" on known instances AND robots to have a turn cost.
