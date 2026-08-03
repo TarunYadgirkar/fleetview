@@ -6,7 +6,7 @@ const SEEN_KEY = 'fleetview:seen-intro';
 
 export interface IntroOptions {
   onEnter(): void;
-  onLoadPreset(): void;
+  onRunDemo(): void;
 }
 
 /**
@@ -25,7 +25,7 @@ export class Intro {
     $('skip-intro').addEventListener('click', () => this.close());
     $('intro-preset').addEventListener('click', () => {
       this.close();
-      this.options.onLoadPreset();
+      this.options.onRunDemo();
     });
     $('show-intro').addEventListener('click', () => this.open());
 

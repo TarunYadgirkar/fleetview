@@ -11,8 +11,9 @@ import { drawCurve, drawTimeline } from './charts';
 import { $, formatMoney, num, setText } from './dom';
 import { type IconName, icon } from './icons';
 import { Intro } from './intro';
-import { countTo, pop, revealGroup } from './motion';
+import { countTo, pop, prefersReducedMotion, revealGroup } from './motion';
 import { LEGEND, Renderer, type RobotFrame, cellColor } from './renderer';
+import { SCENARIOS, type Scenario } from './scenarios';
 import { toast } from './toast';
 
 const TOOLS: { id: CellType | 'robot'; label: string; key: string; iconName: IconName }[] = [
@@ -64,6 +65,8 @@ export class App {
   private requestId = 0;
   private lastTime = 0;
   private sweeping = false;
+  /** set by a demo click, consumed when that run's metrics land */
+  private revealResults = false;
 
   private readonly renderer: Renderer;
   private readonly worker: Worker;
@@ -84,6 +87,7 @@ export class App {
     this.buildTools();
     this.buildSpeeds();
     this.buildPresetOptions();
+    this.buildDemoButtons();
     this.buildRuleTicks();
     this.buildLegend();
     this.buildPanelIcons();
@@ -93,11 +97,7 @@ export class App {
 
     new Intro(document.querySelector<HTMLElement>('.app')!, {
       onEnter: () => this.onEnterPlanner(),
-      onLoadPreset: () => {
-        $<HTMLSelectElement>('preset').value = '1';
-        this.loadPreset(1);
-        toast('Loaded the cross-dock floor. Hit Run simulation.', 'info');
-      },
+      onRunDemo: () => this.runDemo(0),
     });
 
     window.addEventListener('resize', () => this.redraw());
@@ -194,6 +194,76 @@ export class App {
     this.invalidateRun();
     this.syncFloorInputs();
     this.redraw();
+  }
+
+  private buildDemoButtons(): void {
+    const host = $('scenario-list');
+    host.innerHTML = '';
+    SCENARIOS.forEach((scenario, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = i === 0 ? 'btn btn--wide btn--primary scenario__btn' : 'btn btn--wide scenario__btn';
+      btn.dataset.demo = String(i);
+      btn.innerHTML = icon('play', 12);
+      const label = document.createElement('span');
+      label.textContent = scenario.label;
+      btn.appendChild(label);
+      btn.addEventListener('click', () => this.runDemo(i));
+      host.appendChild(btn);
+
+      const caption = document.createElement('p');
+      caption.className = 'scenario__cap';
+      caption.textContent = scenario.caption;
+      host.appendChild(caption);
+    });
+  }
+
+  /**
+   * One click: load the floor, write every input the scenario depends on, run it. All thirteen
+   * fields are written even when they match the defaults — a visitor who already fiddled with
+   * Battery or Max ticks must still get the result the caption advertises.
+   */
+  private runDemo(index: number): void {
+    const scenario = SCENARIOS[index];
+    if (!scenario || $<HTMLButtonElement>('run').disabled) return;
+
+    $<HTMLSelectElement>('preset').value = String(scenario.preset);
+    this.loadPreset(scenario.preset);
+    this.applyScenarioInputs(scenario);
+    this.updateRoi();
+    // set before the run so a synchronous postMessage failure clears it again via abortRun
+    this.revealResults = true;
+    this.startRun();
+  }
+
+  /**
+   * The settings rail scrolls independently of the page, and Results sits below the fold on a
+   * laptop. A one-click demo that leaves its own numbers off-screen is worse than no demo, so
+   * bring them into view once they exist. Only for demo runs — a visitor who pressed Run himself
+   * chose where he was looking.
+   */
+  private scrollResultsIntoView(): void {
+    // a smooth scroll is driven by animation frames, which never arrive in a background tab —
+    // jump instead, same reasoning as countTo
+    const smooth = !prefersReducedMotion() && !document.hidden;
+    $('results-panel').scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'nearest' });
+  }
+
+  private applyScenarioInputs(scenario: Scenario): void {
+    const { fleet, config } = scenario;
+    $<HTMLInputElement>('f-count').value = String(fleet.count);
+    $<HTMLInputElement>('f-move').value = String(fleet.ticksPerMove);
+    $<HTMLInputElement>('f-turn').value = String(fleet.turnCost);
+    $<HTMLInputElement>('f-payload').value = String(fleet.payload);
+    $<HTMLInputElement>('f-battery').value = String(fleet.batteryCapacity);
+    $<HTMLInputElement>('f-charge').value = String(fleet.chargeRate);
+    $<HTMLInputElement>('f-thresh').value = String(fleet.chargeThreshold);
+    $<HTMLInputElement>('c-seed').value = String(config.seed);
+    $<HTMLInputElement>('c-ticks').value = String(config.maxTicks);
+    $<HTMLSelectElement>('c-mode').value = config.orderMode;
+    $<HTMLInputElement>('c-rate').value = String(config.orderRate);
+    $<HTMLInputElement>('c-count').value = String(config.orderCount);
+    $<HTMLInputElement>('c-secs').value = String(config.tickSeconds);
   }
 
   private buildRuleTicks(): void {
@@ -629,6 +699,7 @@ export class App {
   /** Single recovery path out of a run: re-enable the controls and say what happened. */
   private abortRun(message: string): void {
     this.setRunning(false);
+    this.revealResults = false;
     $('progress').hidden = true;
     if (this.sweeping) setText('sweep-note', 'Sweep stopped before it finished.');
     this.sweeping = false;
@@ -679,6 +750,11 @@ export class App {
     this.status(`${msg.ticks} ticks simulated.`);
     this.updateRoi();
     this.redraw();
+
+    if (this.revealResults) {
+      this.revealResults = false;
+      this.scrollResultsIntoView();
+    }
 
     if (frames > 1) {
       this.playing = true;
@@ -836,6 +912,11 @@ export class App {
     document.querySelector('.app')?.setAttribute('data-running', String(running));
     $<HTMLButtonElement>('run').disabled = running;
     $<HTMLButtonElement>('sweep').disabled = running;
+    // swapping the layout mid-run would leave the in-flight worker result rendered against a
+    // different grid, so demos are locked out until the current run lands
+    for (const btn of document.querySelectorAll<HTMLButtonElement>('[data-demo]')) {
+      btn.disabled = running;
+    }
   }
 
   private status(message: string): void {
