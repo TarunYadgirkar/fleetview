@@ -29,6 +29,9 @@ const SPEEDS = [1, 2, 4, 8, 16];
 const BASE_FPS = 30;
 const TRAIL_LENGTH = 5;
 
+const WORKER_FAILURE =
+  'Simulation worker stopped unexpectedly. Reload the page; if it repeats, lower Max ticks or fleet size.';
+
 const STATE_LABEL: Record<string, string> = {
   idle: 'Idle',
   parking: 'Returning',
@@ -60,6 +63,7 @@ export class App {
   private selectedRobot = -1;
   private requestId = 0;
   private lastTime = 0;
+  private sweeping = false;
 
   private readonly renderer: Renderer;
   private readonly worker: Worker;
@@ -72,6 +76,10 @@ export class App {
       type: 'module',
     });
     this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => this.onWorkerMessage(e.data);
+    // without these the UI wedges on "Simulating…" forever: setRunning(false) is only ever
+    // reached from onmessage, so a worker that dies never re-enables Run or Sweep.
+    this.worker.onerror = () => this.abortRun(WORKER_FAILURE);
+    this.worker.onmessageerror = () => this.abortRun(WORKER_FAILURE);
 
     this.buildTools();
     this.buildSpeeds();
@@ -576,13 +584,14 @@ export class App {
     this.setRunning(true);
     this.status('Simulating…');
     $('progress').hidden = false;
-    this.worker.postMessage({
+    this.sweeping = false;
+    this.postToWorker({
       type: 'run',
       id: this.requestId,
       layout: serializeLayout(layout),
       fleet,
       config,
-    } satisfies WorkerRequest);
+    });
   }
 
   private startSweep(): void {
@@ -597,14 +606,34 @@ export class App {
     this.requestId++;
     this.setRunning(true);
     setText('sweep-note', `Running ${sizes.length} simulations…`);
-    this.worker.postMessage({
+    this.sweeping = true;
+    this.postToWorker({
       type: 'scan',
       id: this.requestId,
       layout: serializeLayout(this.layoutForRun(Math.max(...sizes))),
       fleet: this.readFleet(),
       config: this.readConfig(),
       sizes,
-    } satisfies WorkerRequest);
+    });
+  }
+
+  /** postMessage itself can throw (structured-clone failure), which onmessage never sees. */
+  private postToWorker(request: WorkerRequest): void {
+    try {
+      this.worker.postMessage(request);
+    } catch {
+      this.abortRun(WORKER_FAILURE);
+    }
+  }
+
+  /** Single recovery path out of a run: re-enable the controls and say what happened. */
+  private abortRun(message: string): void {
+    this.setRunning(false);
+    $('progress').hidden = true;
+    if (this.sweeping) setText('sweep-note', 'Sweep stopped before it finished.');
+    this.sweeping = false;
+    this.status(message);
+    toast(message, 'bad', 6000);
   }
 
   private onWorkerMessage(msg: WorkerResponse): void {
@@ -617,14 +646,13 @@ export class App {
       return;
     }
 
-    this.setRunning(false);
-    $('progress').hidden = true;
-
     if (msg.type === 'error') {
-      this.status(msg.message);
-      toast(msg.message, 'bad', 6000);
+      this.abortRun(msg.message);
       return;
     }
+
+    this.setRunning(false);
+    $('progress').hidden = true;
 
     if (msg.type === 'scan:done') {
       this.curve = msg.curve;

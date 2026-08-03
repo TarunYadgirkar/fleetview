@@ -15,16 +15,19 @@ Worker.
 
 ## What holds up
 
-- **65 tests pass**, whole suite in about a second: MAPF optimality, per-tick invariants,
-  determinism, degenerate layouts, performance.
+- **69 tests pass**, whole suite in a few seconds: MAPF optimality, property-based verification,
+  per-tick invariants, determinism, degenerate layouts, performance.
 - **CBS matches the known-optimal sum-of-costs on 8 hand-verified MAPF instances** — corridor
   swap, bottleneck door, cyclic rotation, adjacent swap, open-room cross, follow, parallel lanes,
   straight line.
+- **The optimality claim is also checked as a property over 800 seeded random instances** nobody
+  chose: solutions are physically valid, never below the sum-of-costs lower bound, never worse
+  than prioritized planning, and invariant under permuting the agents.
 - **The prioritized fallback is a real downgrade, and a test proves it**: prioritized planning
   *fails* the single-alcove corridor swap that CBS solves.
 - **50 robots on a 100×100 grid for 10,000 ticks** finishes in roughly half a second here, against
   a 10 s budget asserted in the suite.
-- **19.4 kB gzipped JS + 3.9 kB gzipped CSS.** Self-hosted fonts, no CDN, no network calls at
+- **19.6 kB gzipped JS + 3.9 kB gzipped CSS.** Self-hosted fonts, no CDN, no network calls at
   runtime.
 
 ## What you can do
@@ -153,10 +156,17 @@ detected. See `DECISIONS.md` (D4, D13, D15).
 npm test
 ```
 
-65 tests covering:
+69 tests covering:
 
 - **MAPF optimality** — 8 hand-verified instances (corridor swap, bottleneck, cyclic rotation,
   adjacent swap, and others); CBS must match the known optimal sum-of-costs on each.
+- **MAPF properties** — 4 seeds × 200 generated instances (small grids, random wall density, 2–4
+  agents), each asserting four properties of an optimal sum-of-costs solver: physical validity,
+  cost at or above the independent-shortest-path lower bound, cost at or below prioritized
+  planning, and the same optimal cost after permuting the agent array. The last one is what a
+  fixed-order fixture cannot see — it catches per-agent constraint-indexing and tie-breaking bugs.
+  Instances that exceed the expansion budget are skipped, and the skip count is asserted small so
+  the suite cannot quietly degrade into testing nothing.
 - **Hard invariants** asserted every tick across randomized runs: no two robots in one cell, no
   robot inside a wall, no edge swaps, every accepted order completes, item count conserved.
 - **Determinism** — same seed and layout produce identical metrics and identical per-tick
