@@ -1,0 +1,10 @@
+# FleetView
+
+> Browser-based warehouse robot fleet planner: draw a floor plan, place a robot fleet, and simulate throughput, congestion and payback entirely in the browser.
+
+FleetView plans multi-robot routes with Conflict-Based Search (CBS), a multi-agent pathfinding algorithm that resolves shared-aisle conflicts optimally instead of letting robots deadlock nose to nose. CBS drives a deterministic discrete-event simulation in a Web Worker: orders arrive on a seeded random process, robots pick, deposit and charge, and the same seed always produces the same result. Outputs include orders per hour, robot utilisation, latency p95, a congestion heatmap, fleet-size sweeps to find the saturation point, and a payback model against hardware and labour costs. The app ships as static files with no backend and makes no network calls at runtime.
+
+## Links
+
+- [Live app](https://fleetview-kappa.vercel.app/)
+- [Source code](https://github.com/TarunYadgirkar/fleetview)
