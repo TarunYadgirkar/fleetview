@@ -15,7 +15,7 @@ Worker.
 
 ## What holds up
 
-- **69 tests pass**, whole suite in a few seconds: MAPF optimality, property-based verification,
+- **76 tests pass**, whole suite in a few seconds: MAPF optimality, property-based verification,
   per-tick invariants, determinism, degenerate layouts, performance.
 - **CBS matches the known-optimal sum-of-costs on 8 hand-verified MAPF instances** — corridor
   swap, bottleneck door, cyclic rotation, adjacent swap, open-room cross, follow, parallel lanes,
@@ -156,7 +156,7 @@ detected. See `DECISIONS.md` (D4, D13, D15).
 npm test
 ```
 
-69 tests covering:
+76 tests covering:
 
 - **MAPF optimality** — 8 hand-verified instances (corridor swap, bottleneck, cyclic rotation,
   adjacent swap, and others); CBS must match the known optimal sum-of-costs on each.

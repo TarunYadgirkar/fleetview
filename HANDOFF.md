@@ -7,7 +7,7 @@
 npm install && npm test && npm run dev
 ```
 
-65 tests green. Build is clean under `tsc --noEmit` with strict mode. Bundle is 19.4 kB gzipped
+76 tests green. Build is clean under `tsc --noEmit` with strict mode. Bundle is 19.4 kB gzipped
 JS + 3.9 kB CSS + three self-hosted latin font files. Everything is bundled — no CDN, no network
 calls at runtime; `dist/` works offline once served over http.
 
