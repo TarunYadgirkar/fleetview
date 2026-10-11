@@ -4,6 +4,18 @@ Newest first.
 
 ## Log
 
+### T5 — Portfolio refresh: plan-drawing redesign
+- Replaced the near-black + orange theme with a light plan-drawing sheet: signage blue for
+  actions, safety yellow for caution and pick zones, hi-vis orange for robots. Colours are CSS
+  tokens; the canvas reads them through `src/ui/theme.ts`.
+- Floor drawn with dimension lines like a building plan. Big Shoulders Stencil for the headline,
+  Overpass (Highway Gothic lineage) for UI, Overpass Mono for data. Labels are sentence case.
+- App opens on a finished Fulfillment Centre run; the landing hero plays that run live with a
+  title block of its real numbers. Results moved to the top of the settings rail.
+- Reduced motion: no autoplay, corridor demo shows its end state.
+- Fixed: toast rendered messages as HTML, so an imported layout name could inject markup.
+- **76 tests green.** 20.9 kB gzipped JS.
+
 ### T4 — UI overhaul: explainer page, design system, timeline
 - **Explainer view** ("what is this"): hero, live CBS-vs-naive corridor demo driven by the real
   solver, 3-step how-it-works, metric glossary. First visit + reopenable via ?.

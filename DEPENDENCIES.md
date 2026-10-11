@@ -14,8 +14,9 @@ Everything pulled in, what it is, why.
 |---|---|---|
 | `motion` | animation | only `motion/mini` (~2.5 kB) is imported — WAAPI-backed `animate` for entrances, toasts and button feedback. The full engine was 19 kB gzipped for two functions. |
 | `lucide` | icon set | SVG path data, tree-shaken to the ~20 icons actually used and inlined as markup. No icon font, no sprite fetch. |
-| `@fontsource-variable/archivo` | display typeface | industrial grotesque for headings/UI. Self-hosted. |
-| `@fontsource-variable/jetbrains-mono` | mono typeface | data, labels and metrics. Self-hosted. |
+| `@fontsource-variable/big-shoulders-stencil` | display typeface | stencil lettering, as painted on a warehouse floor. Headline, wordmark and step numbers only. Self-hosted. |
+| `@fontsource-variable/overpass` | body/UI typeface | derived from Highway Gothic, the US road-signage face. Self-hosted. |
+| `@fontsource-variable/overpass-mono` | data typeface | metrics, inputs, tick readout and canvas dimension labels. Self-hosted. |
 
 Only the **latin** font subsets are referenced, via hand-written `@font-face` rules in
 `styles.css`. The packages' own CSS pulls Cyrillic, Greek and Vietnamese too, which tripled the

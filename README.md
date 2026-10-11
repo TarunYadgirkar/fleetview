@@ -27,7 +27,7 @@ Worker.
   *fails* the single-alcove corridor swap that CBS solves.
 - **50 robots on a 100×100 grid for 10,000 ticks** finishes in roughly half a second here, against
   a 10 s budget asserted in the suite.
-- **19.6 kB gzipped JS + 3.9 kB gzipped CSS.** Self-hosted fonts, no CDN, no network calls at
+- **20.9 kB gzipped JS + 4.3 kB gzipped CSS.** Self-hosted fonts, no CDN, no network calls at
   runtime.
 
 ## What you can do
@@ -36,7 +36,7 @@ Worker.
 stations, deposit lanes, charge docks, and robot homes. Everything is grid-snapped. Resize or
 clear the floor at any time.
 
-**Trace a real plan.** *Trace a PNG* loads an image as a backdrop behind the grid so you can draw
+**Trace a real plan.** *Trace an image* loads an image as a backdrop behind the grid so you can draw
 over an existing warehouse drawing. The image is reference only — it never becomes geometry.
 
 **Import / export.** Layouts round-trip as JSON (schema v1, validated on import).

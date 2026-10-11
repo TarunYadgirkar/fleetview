@@ -7,8 +7,8 @@
 npm install && npm test && npm run dev
 ```
 
-76 tests green. Build is clean under `tsc --noEmit` with strict mode. Bundle is 19.4 kB gzipped
-JS + 3.9 kB CSS + three self-hosted latin font files. Everything is bundled — no CDN, no network
+76 tests green. Build is clean under `tsc --noEmit` with strict mode. Bundle is 20.9 kB gzipped
+JS + 4.3 kB CSS + three self-hosted latin font files. Everything is bundled — no CDN, no network
 calls at runtime; `dist/` works offline once served over http.
 
 ## What works
@@ -51,7 +51,11 @@ deadlocking beside CBS solving the same corridor optimally. Shown on first visit
 from the planner. Because it calls `cbs()` directly, a regression in the solver is visible on
 the front page.
 
-**Interface.** Self-hosted Archivo + JetBrains Mono, inlined lucide icons, `motion/mini` for
+**Interface.** Light plan-drawing theme: the floor is drawn like a building plan with dimension
+lines, colours follow warehouse floor-marking and signage conventions, and every colour is a CSS
+token (`styles.css`) that the canvas reads through `src/ui/theme.ts`. The app opens on a finished
+Fulfillment Centre run, and the landing page plays that same run live. Self-hosted Big Shoulders
+Stencil + Overpass + Overpass Mono, inlined lucide icons, `motion/mini` for
 entrances and feedback (all reduced-motion aware). Interpolated robot movement with motion
 trails, rack depth shading, floor legend, click-to-inspect robots, wheel zoom and drag pan,
 toasts, progress bar, keyboard shortcuts, a run-timeline chart, and a plain-English verdict on
