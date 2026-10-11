@@ -1,6 +1,6 @@
 import type { ThroughputCurve } from '../sim/scan';
 import type { TimelinePoint } from '../sim/types';
-import { PALETTE } from './renderer';
+import { palette, withAlpha } from './theme';
 
 function prepare(canvas: HTMLCanvasElement, height: number) {
   const ctx = canvas.getContext('2d');
@@ -12,8 +12,9 @@ function prepare(canvas: HTMLCanvasElement, height: number) {
   canvas.height = Math.round(height * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, height);
-  ctx.fillStyle = '#141716';
+  ctx.fillStyle = palette().raised;
   ctx.fillRect(0, 0, w, height);
+  ctx.font = `11px ${palette().dataFont}`;
   return { ctx, w, h: height };
 }
 
@@ -29,13 +30,13 @@ export function drawTimeline(
   const setup = prepare(canvas, 118);
   if (!setup) return;
   const { ctx, w, h } = setup;
-  const pad = { l: 6, r: 6, t: 10, b: 14 };
+  const c = palette();
+  const pad = { l: 6, r: 6, t: 10, b: 16 };
   const plotW = w - pad.l - pad.r;
   const plotH = h - pad.t - pad.b;
 
   if (!timeline || timeline.length < 2) {
-    ctx.fillStyle = '#8b938f';
-    ctx.font = '10px ui-monospace, monospace';
+    ctx.fillStyle = c.inkFaint;
     ctx.fillText('Run a simulation to see how it unfolded', pad.l + 4, h / 2);
     return;
   }
@@ -67,17 +68,16 @@ export function drawTimeline(
       return;
     }
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1.6;
+    ctx.lineWidth = 2;
     ctx.stroke();
   };
 
   // queue depth sits behind as a filled area; it is context, not the headline
-  line((p) => p.pending, maxPending, 'rgba(226,74,42,0.22)', true);
-  if (fleetSize > 0) line((p) => p.busy, fleetSize, PALETTE.charge, false);
-  line((p) => p.completed, maxCompleted, PALETTE.paint, false);
+  line((p) => p.pending, maxPending, withAlpha(c.stop, 0.2), true);
+  if (fleetSize > 0) line((p) => p.busy, fleetSize, c.go, false);
+  line((p) => p.completed, maxCompleted, c.signal, false);
 
-  ctx.fillStyle = '#8b938f';
-  ctx.font = '9px ui-monospace, monospace';
+  ctx.fillStyle = c.inkFaint;
   ctx.fillText('0', pad.l, h - 3);
   const end = `${lastTick}t`;
   ctx.fillText(end, pad.l + plotW - ctx.measureText(end).width, h - 3);
@@ -99,15 +99,17 @@ export function drawCurve(canvas: HTMLCanvasElement, curve: ThroughputCurve | nu
   canvas.height = Math.round(h * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+  const c = palette();
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = '#242826';
+  ctx.fillStyle = c.raised;
   ctx.fillRect(0, 0, w, h);
+  ctx.font = `11px ${c.dataFont}`;
 
   const pad = { l: 34, r: 10, t: 12, b: 22 };
   const plotW = w - pad.l - pad.r;
   const plotH = h - pad.t - pad.b;
 
-  ctx.strokeStyle = '#3b4340';
+  ctx.strokeStyle = c.ruleStrong;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(pad.l + 0.5, pad.t);
@@ -116,8 +118,7 @@ export function drawCurve(canvas: HTMLCanvasElement, curve: ThroughputCurve | nu
   ctx.stroke();
 
   if (!curve || curve.points.length === 0) {
-    ctx.fillStyle = '#9aa19d';
-    ctx.font = '10px ui-monospace, monospace';
+    ctx.fillStyle = c.inkFaint;
     ctx.fillText('Run a sweep to plot throughput', pad.l + 8, pad.t + plotH / 2);
     return;
   }
@@ -132,7 +133,7 @@ export function drawCurve(canvas: HTMLCanvasElement, curve: ThroughputCurve | nu
     pad.l + (maxSize === minSize ? plotW / 2 : ((size - minSize) / (maxSize - minSize)) * plotW);
   const py = (val: number) => pad.t + plotH - (val / maxVal) * plotH;
 
-  ctx.strokeStyle = PALETTE.lane;
+  ctx.strokeStyle = c.signal;
   ctx.lineWidth = 2;
   ctx.beginPath();
   curve.points.forEach((p, i) => {
@@ -147,10 +148,11 @@ export function drawCurve(canvas: HTMLCanvasElement, curve: ThroughputCurve | nu
     const x = px(p.fleetSize);
     const y = py(p.ordersPerHour);
     const isKnee = p.fleetSize === curve.saturationFleetSize;
-    ctx.fillStyle = isKnee ? PALETTE.hivis : PALETTE.lane;
-    ctx.fillRect(x - 3, y - 3, 6, 6);
+    ctx.fillStyle = isKnee ? c.hazard : c.signal;
+    ctx.fillRect(x - 3.5, y - 3.5, 7, 7);
     if (isKnee) {
-      ctx.strokeStyle = PALETTE.hivis;
+      ctx.strokeStyle = c.ink;
+      ctx.strokeRect(x - 3.5, y - 3.5, 7, 7);
       ctx.setLineDash([3, 3]);
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -161,8 +163,7 @@ export function drawCurve(canvas: HTMLCanvasElement, curve: ThroughputCurve | nu
     }
   }
 
-  ctx.fillStyle = '#9aa19d';
-  ctx.font = '9px ui-monospace, monospace';
+  ctx.fillStyle = c.inkFaint;
   ctx.fillText(String(Math.round(maxVal)), 4, pad.t + 6);
   ctx.fillText('0', 4, pad.t + plotH);
   ctx.fillText(`${minSize} robots`, pad.l, h - 6);
