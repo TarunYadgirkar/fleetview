@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FleetView — warehouse robot fleet planner</title>
+    <title>FleetView: warehouse robot fleet planner</title>
     <meta
       name="description"
       content="Draw a warehouse floor, place a robot fleet, and simulate throughput, congestion and payback in the browser."
@@ -11,7 +11,7 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="canonical" href="https://fleetview-kappa.vercel.app/" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="FleetView — warehouse robot fleet planner" />
+    <meta property="og:title" content="FleetView: warehouse robot fleet planner" />
     <meta
       property="og:description"
       content="Conflict-Based Search multi-agent pathfinding plus a deterministic warehouse simulation, running entirely in the browser."
@@ -44,67 +44,68 @@
           </header>
 
           <div class="hero">
-            <p class="eyebrow">Warehouse robotics planning</p>
-            <h1 class="hero__title">
-              Find out how many robots your floor <em>actually</em> needs.
-            </h1>
-            <p class="hero__lead">
-              Draw your warehouse, place a fleet, and watch it run. FleetView simulates every pick,
-              every traffic jam and every charge cycle — then finds the fleet size where adding
-              robots stops paying for itself.
-            </p>
-            <div class="hero__actions">
-              <button id="enter-planner" class="btn btn--primary btn--lg" type="button">
-                Open the planner
-              </button>
-              <button id="intro-preset" class="btn btn--lg" type="button">
-                Watch a live run
-              </button>
+            <div class="hero__copy">
+              <h1 class="hero__title">Find out how many robots your floor actually needs</h1>
+              <p class="hero__lead">
+                Draw your warehouse, place a fleet, and watch it work a shift. FleetView simulates
+                every robot tick by tick, then finds the fleet size where one more robot stops
+                paying for itself.
+              </p>
+              <div class="hero__actions">
+                <button id="enter-planner" class="btn btn--primary btn--lg" type="button">
+                  Open the planner
+                </button>
+              </div>
             </div>
-            <dl class="hero__stats">
-              <div><dt>Runs in</dt><dd>your browser</dd></div>
-              <div><dt>Backend</dt><dd>none</dd></div>
-              <div><dt>Same seed</dt><dd>same result</dd></div>
-            </dl>
+            <figure class="sheet">
+              <canvas id="hero-floor" class="sheet__canvas" role="img"
+                      aria-label="A simulated shift on the Fulfillment Centre floor, robots moving between racks, pick stations and packing lanes"></canvas>
+              <dl class="titleblock">
+                <div><dt>Layout</dt><dd id="tb-layout">Fulfillment Centre</dd></div>
+                <div><dt>Fleet</dt><dd id="tb-fleet">24 robots</dd></div>
+                <div><dt>Orders per hour</dt><dd id="tb-oph">Simulating</dd></div>
+                <div><dt>Utilisation</dt><dd id="tb-util">Simulating</dd></div>
+              </dl>
+            </figure>
           </div>
 
-          <!-- signature: the reason the solver exists, running live -->
-          <div class="thesis">
+          <section class="thesis" aria-labelledby="thesis-title">
             <div class="thesis__copy">
-              <p class="eyebrow">The hard part</p>
-              <h2 class="thesis__title">Robots share aisles. That is the whole problem.</h2>
+              <h2 class="section-title" id="thesis-title">Robots share aisles, and that is the hard part</h2>
               <p>
                 Route each robot on its own and two of them will eventually want the same cell at
-                the same tick. In a single-width aisle they meet nose to nose and neither can move
-                again — the floor quietly stops working.
+                the same tick. In a single-width aisle they meet nose to nose, neither can move
+                again, and the floor quietly stops working.
               </p>
               <p>
                 FleetView plans the fleet together using <strong>Conflict-Based Search</strong>. It
-                finds the conflict, branches on it, and re-plans the cheapest way around — here, by
-                parking one robot in the passing bay. Both panels below are the real solver running
-                on the same corridor.
+                finds the conflict, branches on it, and re-plans the cheapest way around. Here that
+                means parking one robot in the passing bay. Both panels run the real solver on the
+                same corridor.
               </p>
-              <p class="thesis__note" id="thesis-cost">Solving…</p>
+              <p class="thesis__note" id="thesis-cost">Solving the corridor</p>
             </div>
             <div class="thesis__demos">
-              <figure class="demo demo--bad">
+              <figure class="demo">
                 <figcaption>
-                  <span class="demo__label">Route each robot alone</span>
+                  <span class="demo__label">Each robot routed alone</span>
                   <span class="tag tag--bad">Deadlock</span>
                 </figcaption>
-                <canvas id="demo-naive" class="demo__canvas"></canvas>
-                <p class="demo__caption">Both advance, both block, nothing moves again.</p>
+                <canvas id="demo-naive" class="demo__canvas" role="img"
+                        aria-label="Two robots meet head on in a one-cell corridor and stop"></canvas>
+                <p class="demo__caption">Both advance, both block, and nothing moves again.</p>
               </figure>
-              <figure class="demo demo--good">
+              <figure class="demo">
                 <figcaption>
                   <span class="demo__label">Conflict-Based Search</span>
                   <span class="tag tag--good">Optimal</span>
                 </figcaption>
-                <canvas id="demo-cbs" class="demo__canvas"></canvas>
-                <p class="demo__caption">One waits in the bay. Both arrive, at the lowest cost.</p>
+                <canvas id="demo-cbs" class="demo__canvas" role="img"
+                        aria-label="One robot waits in the passing bay while the other goes by"></canvas>
+                <p class="demo__caption">One robot waits in the bay, so both arrive at the lowest total cost.</p>
               </figure>
             </div>
-          </div>
+          </section>
 
           <ol class="steps">
             <li class="step">
@@ -135,36 +136,36 @@
             </li>
           </ol>
 
-          <div class="glossary">
-            <p class="eyebrow">What the numbers mean</p>
-            <div class="glossary__grid">
+          <section class="glossary" aria-labelledby="glossary-title">
+            <h2 class="section-title" id="glossary-title">What the numbers mean</h2>
+            <dl class="glossary__grid">
               <div class="gloss">
-                <h4>Orders / hour</h4>
-                <p>Completed orders scaled to an hour. The headline throughput number.</p>
+                <dt>Orders per hour</dt>
+                <dd>Completed orders scaled to an hour. This is the headline throughput number.</dd>
               </div>
               <div class="gloss">
-                <h4>Utilisation</h4>
-                <p>
+                <dt>Utilisation</dt>
+                <dd>
                   Share of time robots spend on real work. Low means too many robots; near 100%
-                  means no slack for demand spikes.
-                </p>
+                  means no slack for a demand spike.
+                </dd>
               </div>
               <div class="gloss">
-                <h4>Latency p95</h4>
-                <p>
-                  95% of orders finish faster than this. The mean hides the bad tail — this is the
-                  number a customer promise rests on.
-                </p>
+                <dt>Latency p95</dt>
+                <dd>
+                  95% of orders finish faster than this. The mean hides the slow tail, so this is
+                  the number to build a delivery promise on.
+                </dd>
               </div>
               <div class="gloss">
-                <h4>Saturation point</h4>
-                <p>
+                <dt>Saturation point</dt>
+                <dd>
                   The smallest fleet still within 95% of peak throughput. Past it, robots mostly
                   queue behind each other.
-                </p>
+                </dd>
               </div>
-            </div>
-          </div>
+            </dl>
+          </section>
 
           <footer class="intro__foot">
             <button id="enter-planner-2" class="btn btn--primary btn--lg" type="button">
@@ -186,11 +187,11 @@
             <select id="preset" class="control"></select>
           </label>
           <div class="topbar__actions">
-            <button id="import-json" class="btn" type="button">Import</button>
-            <button id="export-json" class="btn" type="button">Export</button>
-            <button id="import-png" class="btn" type="button">Trace PNG</button>
-            <button id="show-intro" class="btn btn--icon" type="button" title="What is this?"
-                    aria-label="What is this?"></button>
+            <button id="import-json" class="btn" type="button" title="Load a layout saved as JSON">Import</button>
+            <button id="export-json" class="btn" type="button" title="Download this layout as JSON">Export</button>
+            <button id="import-png" class="btn" type="button" title="Put a floor plan image behind the grid to draw over">Trace an image</button>
+            <button id="show-intro" class="btn btn--icon" type="button" title="About FleetView"
+                    aria-label="About FleetView"></button>
           </div>
           <input id="file-json" type="file" accept="application/json,.json" hidden />
           <input id="file-png" type="file" accept="image/png,image/jpeg" hidden />
@@ -198,10 +199,10 @@
 
         <div class="body">
           <nav class="tools" aria-label="Floor plan tools">
-            <p class="tools__title">Draw</p>
+            <h2 class="tools__title">Draw</h2>
             <div class="tools__grid" id="tool-list" role="radiogroup" aria-label="Cell tool"></div>
 
-            <p class="tools__title">Floor</p>
+            <h2 class="tools__title">Floor size</h2>
             <div class="tools__row">
               <label class="field">
                 <span class="field__label">Width</span>
@@ -215,7 +216,7 @@
             <button id="resize" class="btn btn--wide" type="button">Resize floor</button>
             <button id="clear" class="btn btn--wide" type="button">Clear floor</button>
 
-            <p class="tools__title">Overlays</p>
+            <h2 class="tools__title">Overlays</h2>
             <label class="check">
               <input id="show-heat" type="checkbox" />
               <span>Congestion heatmap</span>
@@ -225,12 +226,12 @@
               <span>Motion trails</span>
             </label>
 
-            <p class="tools__title">Traced plan</p>
+            <h2 class="tools__title">Traced image</h2>
             <label class="field">
               <span class="field__label">Opacity <output id="backdrop-out">0.5</output></span>
               <input id="backdrop" class="control" type="range" min="0" max="1" step="0.05" value="0.5" />
             </label>
-            <button id="backdrop-clear" class="btn btn--wide" type="button">Remove backdrop</button>
+            <button id="backdrop-clear" class="btn btn--wide" type="button">Remove image</button>
           </nav>
 
           <main class="stage">
@@ -248,8 +249,8 @@
               </span>
             </div>
             <div class="inspector" id="inspector" hidden>
-              <button class="inspector__close" id="inspector-close" type="button" aria-label="Close">×</button>
-              <p class="eyebrow">Robot <span id="insp-id">0</span></p>
+              <button class="inspector__close" id="inspector-close" type="button" aria-label="Close robot details">×</button>
+              <p class="inspector__title">Robot <span id="insp-id">0</span></p>
               <dl>
                 <div><dt>State</dt><dd id="insp-state">—</dd></div>
                 <div><dt>Cell</dt><dd id="insp-cell">—</dd></div>
@@ -260,10 +261,35 @@
           </main>
 
           <aside class="panels" aria-label="Simulation settings and results">
+            <section class="panel" id="results-panel">
+              <h2 class="panel__title" data-icon="gauge">Results</h2>
+              <dl class="metrics" id="metrics">
+                <div class="metric metric--headline" title="Completed orders scaled to one hour.">
+                  <dt>Orders per hour</dt><dd id="m-oph">—</dd></div>
+                <div class="metric" title="Share of ticks robots spend on productive work.">
+                  <dt>Utilisation</dt><dd id="m-util">—</dd></div>
+                <div class="metric" title="Average ticks from order arrival to deposit.">
+                  <dt>Latency mean</dt><dd id="m-lat">—</dd></div>
+                <div class="metric" title="95% of orders complete faster than this.">
+                  <dt>Latency p95</dt><dd id="m-p95">—</dd></div>
+                <div class="metric" title="Orders finished during the run.">
+                  <dt>Completed</dt><dd id="m-done">—</dd></div>
+                <div class="metric" title="Orders that arrived during the run.">
+                  <dt>Accepted</dt><dd id="m-acc">—</dd></div>
+              </dl>
+              <canvas id="timeline" class="curve" width="320" height="118"></canvas>
+              <p class="chart-key">
+                <span class="key key--signal">Orders done</span>
+                <span class="key key--go">Robots working</span>
+                <span class="key key--stop">Orders waiting</span>
+              </p>
+              <p class="verdict" id="verdict" hidden></p>
+            </section>
+
             <section class="panel">
-              <h2 class="panel__title" data-icon="play">Start here</h2>
+              <h2 class="panel__title" data-icon="play">Scenarios</h2>
               <p class="panel__hint">
-                New here? Click one. Each loads a real floor, runs the simulation, and plays it back.
+                Each one loads a floor, simulates the shift, and plays it back.
               </p>
               <div class="scenarios" id="scenario-list"></div>
             </section>
@@ -309,32 +335,7 @@
               </div>
               <button id="run" class="btn btn--primary btn--wide" type="button">Run simulation</button>
               <div class="progress" id="progress" hidden><div class="progress__bar" id="progress-bar"></div></div>
-              <p id="run-status" class="status" role="status">Ready when you are.</p>
-            </section>
-
-            <section class="panel" id="results-panel">
-              <h2 class="panel__title" data-icon="gauge">Results</h2>
-              <dl class="metrics" id="metrics">
-                <div class="metric" title="Completed orders scaled to one hour.">
-                  <dt>Orders / hour</dt><dd id="m-oph">—</dd></div>
-                <div class="metric" title="Share of ticks robots spend on productive work.">
-                  <dt>Utilisation</dt><dd id="m-util">—</dd></div>
-                <div class="metric" title="Average ticks from order arrival to deposit.">
-                  <dt>Latency mean</dt><dd id="m-lat">—</dd></div>
-                <div class="metric" title="95% of orders complete faster than this.">
-                  <dt>Latency p95</dt><dd id="m-p95">—</dd></div>
-                <div class="metric" title="Orders finished during the run.">
-                  <dt>Completed</dt><dd id="m-done">—</dd></div>
-                <div class="metric" title="Orders that arrived during the run.">
-                  <dt>Accepted</dt><dd id="m-acc">—</dd></div>
-              </dl>
-              <canvas id="timeline" class="curve" width="320" height="118"></canvas>
-              <p class="chart-key">
-                <span class="key key--paint">Orders done</span>
-                <span class="key key--charge">Robots working</span>
-                <span class="key key--alarm">Queue</span>
-              </p>
-              <p class="verdict" id="verdict" hidden></p>
+              <p id="run-status" class="status" role="status">Set the fleet and press Run.</p>
             </section>
 
             <section class="panel">
@@ -343,7 +344,7 @@
                 <input id="sweep-sizes" class="control" type="text" value="2, 4, 8, 12, 16, 24" /></label>
               <button id="sweep" class="btn btn--wide" type="button">Run sweep</button>
               <canvas id="curve" class="curve" width="320" height="170"></canvas>
-              <p id="sweep-note" class="status">Find where extra robots stop paying.</p>
+              <p id="sweep-note" class="status">Runs one simulation per size and marks where extra robots stop adding throughput.</p>
             </section>
 
             <section class="panel">

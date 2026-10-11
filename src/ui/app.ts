@@ -11,9 +11,10 @@ import { drawCurve, drawTimeline } from './charts';
 import { $, formatMoney, num, setText } from './dom';
 import { type IconName, icon } from './icons';
 import { Intro } from './intro';
-import { countTo, pop, prefersReducedMotion, revealGroup } from './motion';
+import { countTo, pop, prefersReducedMotion } from './motion';
 import { LEGEND, Renderer, type RobotFrame, cellColor } from './renderer';
 import { SCENARIOS, type Scenario } from './scenarios';
+import { palette } from './theme';
 import { toast } from './toast';
 
 const TOOLS: { id: CellType | 'robot'; label: string; key: string; iconName: IconName }[] = [
@@ -69,12 +70,17 @@ export class App {
   private revealResults = false;
 
   private readonly renderer: Renderer;
+  /** the landing page's live floor: same run, same frame, drawn on the hero's sheet */
+  private readonly heroRenderer: Renderer;
+  private readonly appEl: HTMLElement;
   private readonly worker: Worker;
   private readonly canvas: HTMLCanvasElement;
 
   constructor() {
     this.canvas = $<HTMLCanvasElement>('floor');
     this.renderer = new Renderer(this.canvas);
+    this.heroRenderer = new Renderer($<HTMLCanvasElement>('hero-floor'), 'raised');
+    this.appEl = document.querySelector<HTMLElement>('.app')!;
     this.worker = new Worker(new URL('../worker/sim.worker.ts', import.meta.url), {
       type: 'module',
     });
@@ -95,21 +101,33 @@ export class App {
     this.bindControls();
     this.bindKeyboard();
 
-    new Intro(document.querySelector<HTMLElement>('.app')!, {
-      onEnter: () => this.onEnterPlanner(),
-      onRunDemo: () => this.runDemo(0),
+    new Intro(this.appEl, {
+      onEnter: () => this.redraw(),
+      onOpen: () => this.replayForHero(),
     });
 
     window.addEventListener('resize', () => this.redraw());
+    // canvas text falls back silently if it is drawn before the webfont arrives
+    void document.fonts.ready.then(() => this.redraw());
     this.syncFloorInputs();
     this.updateRoi();
     this.redraw();
     requestAnimationFrame((t) => this.tickPlayback(t));
+    // open on a finished run, so the first thing anyone sees is the product working
+    this.runDemo(0, false);
   }
 
-  private onEnterPlanner(): void {
+  private get introOpen(): boolean {
+    return this.appEl.dataset.view === 'intro';
+  }
+
+  private replayForHero(): void {
     this.redraw();
-    revealGroup(document.querySelectorAll('.panels .panel'), 0.02);
+    if (!this.run || this.frameCount <= 1 || prefersReducedMotion()) return;
+    this.frame = 0;
+    this.frameProgress = 0;
+    this.playing = true;
+    this.syncPlayLabel();
   }
 
   /* ---------- chrome ---------- */
@@ -123,10 +141,7 @@ export class App {
       btn.className = 'btn tool';
       btn.setAttribute('role', 'radio');
       btn.dataset.tool = tool.id;
-      const swatch =
-        tool.id === 'robot'
-          ? '#ff6a1a'
-          : cellColor(tool.id as CellType);
+      const swatch = tool.id === 'robot' ? palette().robot : cellColor(tool.id as CellType);
       btn.innerHTML =
         `<span class="tool__chip" style="background:${swatch}"></span>` +
         `<span>${tool.label}</span><kbd>${tool.key}</kbd>`;
@@ -200,21 +215,23 @@ export class App {
     const host = $('scenario-list');
     host.innerHTML = '';
     SCENARIOS.forEach((scenario, i) => {
+      const item = document.createElement('div');
+      item.className = 'scenario';
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = i === 0 ? 'btn btn--wide btn--primary scenario__btn' : 'btn btn--wide scenario__btn';
+      btn.className = 'btn btn--wide scenario__btn';
       btn.dataset.demo = String(i);
       btn.innerHTML = icon('play', 12);
       const label = document.createElement('span');
       label.textContent = scenario.label;
       btn.appendChild(label);
       btn.addEventListener('click', () => this.runDemo(i));
-      host.appendChild(btn);
 
       const caption = document.createElement('p');
       caption.className = 'scenario__cap';
       caption.textContent = scenario.caption;
-      host.appendChild(caption);
+      item.append(btn, caption);
+      host.appendChild(item);
     });
   }
 
@@ -223,7 +240,7 @@ export class App {
    * fields are written even when they match the defaults — a visitor who already fiddled with
    * Battery or Max ticks must still get the result the caption advertises.
    */
-  private runDemo(index: number): void {
+  private runDemo(index: number, reveal = true): void {
     const scenario = SCENARIOS[index];
     if (!scenario || $<HTMLButtonElement>('run').disabled) return;
 
@@ -232,7 +249,7 @@ export class App {
     this.applyScenarioInputs(scenario);
     this.updateRoi();
     // set before the run so a synchronous postMessage failure clears it again via abortRun
-    this.revealResults = true;
+    this.revealResults = reveal;
     this.startRun();
   }
 
@@ -594,7 +611,7 @@ export class App {
     img.onload = () => {
       this.backdrop = img;
       this.redraw();
-      toast('Backdrop loaded — trace the walls and racks over it.', 'good', 5000);
+      toast('Image loaded. Trace the walls and racks over it.', 'good', 5000);
     };
     img.onerror = () => toast('That image could not be loaded.', 'bad');
     img.src = url;
@@ -648,7 +665,7 @@ export class App {
     const config = this.readConfig();
     const layout = this.layoutForRun(fleet.count);
     if (layout.robots.length < fleet.count) {
-      toast(`Only ${layout.robots.length} free cells — fleet trimmed to fit.`, 'bad', 5000);
+      toast(`Only ${layout.robots.length} free cells, so the fleet was trimmed to fit.`, 'bad', 5000);
     }
     this.requestId++;
     this.setRunning(true);
@@ -728,7 +745,7 @@ export class App {
     if (msg.type === 'scan:done') {
       this.curve = msg.curve;
       drawCurve($<HTMLCanvasElement>('curve'), this.curve);
-      setText('sweep-note', `Saturates at ${msg.curve.saturationFleetSize} robots — past that, throughput barely moves.`);
+      setText('sweep-note', `Saturates at ${msg.curve.saturationFleetSize} robots. Past that, throughput barely moves.`);
       toast(`Sweep done. Saturation at ${msg.curve.saturationFleetSize} robots.`, 'good');
       return;
     }
@@ -747,7 +764,8 @@ export class App {
     $<HTMLButtonElement>('play').disabled = frames <= 1;
 
     this.showMetrics();
-    this.status(`${msg.ticks} ticks simulated.`);
+    this.updateTitleBlock();
+    this.status(`Simulated ${msg.ticks} ticks.`);
     this.updateRoi();
     this.redraw();
 
@@ -756,7 +774,13 @@ export class App {
       this.scrollResultsIntoView();
     }
 
-    if (frames > 1) {
+    if (frames > 1 && prefersReducedMotion()) {
+      // no autoplay under reduced motion: park on a mid-shift frame so the floor still shows
+      // robots at work, and leave Play to the visitor
+      this.frame = Math.floor(frames / 2);
+      scrub.value = String(this.frame);
+      this.redraw();
+    } else if (frames > 1) {
       this.playing = true;
       this.syncPlayLabel();
     }
@@ -777,17 +801,31 @@ export class App {
     const backlog = m.ordersAccepted - m.ordersCompleted;
     const util = m.utilization;
     let text: string;
+    let tone: 'good' | 'warn' | 'bad' = 'good';
     if (m.ordersAccepted === 0) {
       text = 'No orders arrived. Add pick and deposit stations, or raise the arrival rate.';
+      tone = 'warn';
     } else if (backlog > m.ordersAccepted * 0.25) {
-      text = `The fleet is oversubscribed — ${backlog} orders never got served. Add robots or lower the arrival rate.`;
+      text = `The fleet is oversubscribed: ${backlog} orders never got served. Add robots or lower the arrival rate.`;
+      tone = 'bad';
     } else if (util < 0.3) {
       text = `Robots idle ${Math.round((1 - util) * 100)}% of the time. You could run this floor with fewer.`;
+      tone = 'warn';
     } else {
       text = `Demand and fleet are balanced: ${Math.round(util * 100)}% utilisation with the backlog under control.`;
     }
     verdict.textContent = text;
+    verdict.dataset.tone = tone;
     verdict.hidden = false;
+  }
+
+  private updateTitleBlock(): void {
+    const m = this.run?.metrics;
+    if (!m) return;
+    setText('tb-layout', this.layout.name);
+    setText('tb-fleet', `${this.run?.robotCount ?? 0} robots`);
+    setText('tb-oph', m.ordersPerHour.toFixed(0));
+    setText('tb-util', `${(m.utilization * 100).toFixed(0)}%`);
   }
 
   private updateRoi(): void {
@@ -834,6 +872,11 @@ export class App {
       while (this.frameProgress >= 1) {
         this.frameProgress -= 1;
         this.frame++;
+        if (this.frame >= frames - 1 && this.introOpen) {
+          // the landing floor loops; it is a showcase, not a tool
+          this.frame = 0;
+          continue;
+        }
         if (this.frame >= frames - 1) {
           this.frame = Math.max(0, frames - 1);
           this.frameProgress = 0;
@@ -925,9 +968,10 @@ export class App {
 
   private redraw(): void {
     const { grid } = this.layout;
-    this.renderer.resize(grid);
+    const target = this.introOpen ? this.heroRenderer : this.renderer;
+    target.resize(grid);
 
-    this.renderer.draw({
+    target.draw({
       grid,
       homes: this.layout.robots.map((r) => r.y * grid.width + r.x),
       robots: this.buildRobotFrame(),
@@ -936,9 +980,10 @@ export class App {
       showTrails: this.showTrails,
       backdrop: this.backdrop,
       backdropOpacity: this.backdropOpacity,
-      hoverCell: this.hoverCell,
-      selectedRobot: this.selectedRobot,
+      hoverCell: this.introOpen ? -1 : this.hoverCell,
+      selectedRobot: this.introOpen ? -1 : this.selectedRobot,
     });
+    if (this.introOpen) return;
 
     const tick = this.run ? this.frame * this.run.stride : 0;
     setText('tick-read', String(tick).padStart(4, '0'));

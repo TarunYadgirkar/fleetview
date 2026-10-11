@@ -6,7 +6,7 @@ const SEEN_KEY = 'fleetview:seen-intro';
 
 export interface IntroOptions {
   onEnter(): void;
-  onRunDemo(): void;
+  onOpen(): void;
 }
 
 /**
@@ -23,10 +23,6 @@ export class Intro {
     $('enter-planner').addEventListener('click', () => this.close());
     $('enter-planner-2').addEventListener('click', () => this.close());
     $('skip-intro').addEventListener('click', () => this.close());
-    $('intro-preset').addEventListener('click', () => {
-      this.close();
-      this.options.onRunDemo();
-    });
     $('show-intro').addEventListener('click', () => this.open());
 
     document.addEventListener('keydown', (e) => {
@@ -60,8 +56,8 @@ export class Intro {
   open(): void {
     this.app.dataset.view = 'intro';
     this.startDemo();
-    revealGroup(document.querySelectorAll('.hero > *'), 0.05);
-    revealGroup(document.querySelectorAll('.step'), 0.15);
+    revealGroup(document.querySelectorAll('.hero__copy > *, .hero .sheet'), 0.05);
+    this.options.onOpen();
   }
 
   close(remember = true): void {
@@ -80,8 +76,8 @@ export class Intro {
       ({ cost, naiveStalled }) => {
         const note = $('thesis-cost');
         note.textContent = naiveStalled
-          ? `Uncoordinated routing deadlocks here. CBS solves it at sum-of-costs ${cost} — provably the cheapest possible.`
-          : `CBS solves it at sum-of-costs ${cost}.`;
+          ? `Uncoordinated routing deadlocks here. CBS solves it in ${cost} robot-steps in total, waits included. No plan is cheaper.`
+          : `CBS solves it in ${cost} robot-steps in total.`;
       },
     );
   }
