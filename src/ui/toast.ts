@@ -25,7 +25,11 @@ function ensureHost(): HTMLElement {
 export function toast(message: string, tone: Tone = 'info', ms = 3600): void {
   const el = document.createElement('div');
   el.className = `toast toast--${tone}`;
-  el.innerHTML = `${icon(TONE_ICON[tone], 15)}<span>${message}</span>`;
+  el.innerHTML = icon(TONE_ICON[tone], 15);
+  // message can carry an imported layout's name, so it must never be parsed as markup
+  const text = document.createElement('span');
+  text.textContent = message;
+  el.appendChild(text);
   ensureHost().appendChild(el);
 
   if (!prefersReducedMotion()) {
